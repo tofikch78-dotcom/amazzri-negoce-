@@ -1217,7 +1217,6 @@ const LS_KEY_COMPANY = 'companyInfo';
 
 function saveData(){
   try{
-    localStorage.setItem(LS_KEY_PRODUCTS,  JSON.stringify(products));
     localStorage.setItem(LS_KEY_INVOICES,  JSON.stringify(invoices));
     localStorage.setItem(LS_KEY_COUNTER,   String(invoiceCounter));
     localStorage.setItem(LS_KEY_CLIENTS,   JSON.stringify(clients));
@@ -1229,7 +1228,6 @@ function saveData(){
 }
 
 function loadData(){
-  const p = localStorage.getItem(LS_KEY_PRODUCTS);
   const i = localStorage.getItem(LS_KEY_INVOICES);
   const c = localStorage.getItem(LS_KEY_COUNTER);
   const cl = localStorage.getItem(LS_KEY_CLIENTS);
@@ -1237,7 +1235,6 @@ function loadData(){
   const sh = localStorage.getItem(LS_KEY_HISTORY);
   const rr = localStorage.getItem(LS_KEY_RECEIPTS);
   const rc = localStorage.getItem(LS_KEY_REC_COUNT);
-  try{if(p) products=JSON.parse(p);}catch(e){console.warn('Failed to load products',e);}
   try{if(i) invoices=JSON.parse(i);}catch(e){console.warn('Failed to load invoices',e);}
   if(c) invoiceCounter=parseInt(c,10)||1;
   try{if(cl) clients=JSON.parse(cl);}catch(e){console.warn('Failed to load clients',e);}
@@ -1267,6 +1264,7 @@ async function doLogin(){
   }
   const {data:profile}=await sb.from('profiles').select('username,display_name').eq('id',data.user.id).single();
   currentUser=profile?.username||u;
+  await loadProductsFromSupabase();
   document.getElementById('login-screen').style.display='none';
   document.getElementById('app').style.display='flex';
   document.getElementById('set-user-val').textContent=currentUser;
@@ -1283,6 +1281,7 @@ async function restoreSession(){
   if(session?.user){
     const {data:profile}=await sb.from('profiles').select('username,display_name').eq('id',session.user.id).single();
     currentUser=profile?.username||'admin';
+    await loadProductsFromSupabase();
     document.getElementById('login-screen').style.display='none';
     document.getElementById('app').style.display='flex';
     document.getElementById('set-user-val').textContent=currentUser;
@@ -1295,6 +1294,100 @@ async function restoreSession(){
 sb.auth.onAuthStateChange((event,session)=>{
   if(event==='SIGNED_OUT'){currentUser='';document.getElementById('login-screen').style.display='flex';document.getElementById('app').style.display='none';}
 });
+
+// ── PRODUCTS REPOSITORY (Supabase) ──
+function mapProductFromSupabase(row){
+  return{
+    id:row.legacy_id||row.id,
+    supabaseId:row.id,
+    name:row.name,
+    category:row.category_name||'',
+    unit:row.unit||'Pcs',
+    emoji:row.emoji||'📦',
+    buy:parseFloat(row.buy_price)||0,
+    sell:parseFloat(row.sell_price)||0,
+    qty:parseFloat(row.stock_qty)||0,
+    threshold:parseFloat(row.threshold)||5,
+  };
+}
+function mapProductToSupabase(product){
+  const body={
+    name:product.name,
+    unit:product.unit||'Pcs',
+    emoji:product.emoji||'📦',
+    buy_price:product.buy||0,
+    sell_price:product.sell||0,
+    stock_qty:product.qty||0,
+    threshold:product.threshold||5,
+    legacy_id:product.id||Date.now(),
+  };
+  if(product.category&&product.category!=='Peinture')body.category_name=product.category;
+  return body;
+}
+async function loadProductsFromSupabase(){
+  console.log('=== LOAD PRODUCTS FROM SUPABASE START ===');
+  try{
+    console.log('sb.auth session exists:',!!(await sb.auth.getSession()));
+    const result=await sb.from('products').select('*');
+    console.log('LOAD RAW RESULT',result);
+    if(result.error){
+      console.error('Supabase load products error',result.error);
+      console.error('LOAD ERROR CODE',result.error.code);
+      console.error('LOAD ERROR MESSAGE',result.error.message);
+      return false;
+    }
+    console.log('LOAD DATA COUNT',result.data?.length||0);
+    console.log('LOAD DATA',result.data);
+    products=(result.data||[]).map(mapProductFromSupabase);
+    console.log('MAPPED products.length',products.length);
+    return true;
+  }catch(e){
+    console.error('loadProductsFromSupabase EXCEPTION',e);
+    console.error('EXCEPTION MESSAGE',e.message);
+    return false;
+  }finally{console.log('=== LOAD PRODUCTS FROM SUPABASE END ===');}
+}
+async function createProductOnSupabase(product){
+  console.log('=== CREATE PRODUCT START ===');
+  try{
+    const body=mapProductToSupabase(product);
+    console.log('SUPABASE PRODUCT PAYLOAD',JSON.stringify(body));
+    const result=await sb.from('products').insert(body).select();
+    console.log('SUPABASE RAW RESULT',result);
+    if(result.error){
+      console.error('SUPABASE INSERT ERROR',result.error);
+      console.error('SUPABASE ERROR CODE',result.error.code);
+      console.error('SUPABASE ERROR MESSAGE',result.error.message);
+      console.error('SUPABASE ERROR DETAILS',result.error.details);
+      return null;
+    }
+    const data=result.data?.[0]||null;
+    console.log('SUPABASE INSERT DATA',data);
+    if(!data){console.error('SUPABASE INSERT returned no data');return null;}
+    return mapProductFromSupabase(data);
+  }catch(e){
+    console.error('createProductOnSupabase EXCEPTION',e);
+    console.error('EXCEPTION MESSAGE',e.message);
+    console.error('EXCEPTION STACK',e.stack);
+    return null;
+  }finally{console.log('=== CREATE PRODUCT END ===');}
+}
+async function updateProductOnSupabase(id,product){
+  try{
+    const body=mapProductToSupabase(product);
+    delete body.legacy_id;
+    const {error}=await sb.from('products').update(body).eq('legacy_id',id);
+    if(error){console.error('Supabase update product error',error);return false;}
+    return true;
+  }catch(e){console.error('updateProductOnSupabase failed',e);return false;}
+}
+async function deleteProductOnSupabase(id){
+  try{
+    const {error}=await sb.from('products').delete().eq('legacy_id',id);
+    if(error){console.error('Supabase delete product error',error);return false;}
+    return true;
+  }catch(e){console.error('deleteProductOnSupabase failed',e);return false;}
+}
 
 // ── NAV ──
 function showSection(id,btn){
@@ -1466,7 +1559,9 @@ function openProductModal(id){
   document.getElementById('product-modal').classList.add('open');
 }
 function closeModal(id){document.getElementById(id).classList.remove('open');}
-function saveProduct(){
+async function saveProduct(){
+  console.log('SAVE PRODUCT START');
+  console.log('editId',editId);
   const name=document.getElementById('p-name').value.trim();
   const cat=document.getElementById('p-cat').value;
   const unit=document.getElementById('p-unit').value.trim()||'Pcs';
@@ -1475,23 +1570,41 @@ function saveProduct(){
   let sell=+document.getElementById('p-sell').value;if(isNaN(sell)||sell<0)sell=0;
   let qty=+document.getElementById('p-qty').value;if(isNaN(qty)||qty<0)qty=0;
   const threshold=+document.getElementById('p-threshold').value||5;
-  if(!name)return;
+  if(!name){console.log('SAVE PRODUCT ABORT: empty name');return;}
   if(editId){
     const old=products.find(x=>x.id===editId);
+    if(!old){console.log('SAVE PRODUCT ABORT: editId not found');return;}
     const oldQty=old.qty;
     const diff=qty-oldQty;
     Object.assign(old,{name,category:cat,unit,emoji,buy,sell,qty,threshold});
+    console.log('SAVE PRODUCT calling updateProductOnSupabase',editId);
+    await updateProductOnSupabase(editId,old);
     if(diff!==0)recordStockMovement(editId,name,diff>0?'STOCK_IN':'STOCK_OUT',Math.abs(diff),oldQty,qty,'Ajustement manuel');
   }
   else{
-    products.push({id:Date.now(),name,category:cat,unit,emoji,buy,sell,qty,threshold});
-    const newId=products[products.length-1].id;
-    if(qty>0)recordStockMovement(newId,name,'STOCK_IN',qty,0,qty,'Création');
+    const tempId=Date.now();
+    console.log('SAVE PRODUCT calling createProductOnSupabase with tempId',tempId);
+    const created=await createProductOnSupabase({id:tempId,name,category:cat,unit,emoji,buy,sell,qty,threshold});
+    console.log('SAVE PRODUCT createProductOnSupabase returned',created);
+    if(created){
+      console.log('SAVE PRODUCT pushing Supabase-returned product');
+      products.push(created);
+      if(qty>0)recordStockMovement(created.id,name,'STOCK_IN',qty,0,qty,'Création');
+    }else{
+      console.log('SAVE PRODUCT push fallback local-only product');
+      products.push({id:tempId,name,category:cat,unit,emoji,buy,sell,qty,threshold});
+      if(qty>0)recordStockMovement(tempId,name,'STOCK_IN',qty,0,qty,'Création');
+    }
   }
-  saveData();
+  console.log('SAVE PRODUCT complete, products.length:',products.length);
   closeModal('product-modal');renderAll();buildProdDropdown();
 }
-function deleteProduct(id){if(confirm(T('confirm_del_prod'))){products=products.filter(p=>p.id!==id);saveData();renderAll();buildProdDropdown();}}
+async function deleteProduct(id){
+  if(!confirm(T('confirm_del_prod')))return;
+  await deleteProductOnSupabase(id);
+  products=products.filter(p=>p.id!==id);
+  renderAll();buildProdDropdown();
+}
 function viewProductHistory(id){
   const p=products.find(x=>x.id===id);if(!p)return;
   const movements=stockHistory.filter(h=>h.productId===id).sort((a,b)=>a.date.localeCompare(b.date)||a.id-b.id);
