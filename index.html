@@ -340,6 +340,7 @@ input:checked+.slider:before{transform:translateX(20px);}
       <button onclick="showSection('reception',this)">📥 <span id="mn-reception">Réception</span></button>
       <button onclick="showSection('invoices',this)">🧾 <span id="mn-inv">Factures</span></button>
       <button onclick="showSection('stats',this)">📉 <span id="mn-stats">Statistiques</span></button>
+      <button onclick="showSection('reports',this)">📊 <span id="mn-reports">Rapports</span></button>
       <button onclick="showSection('ia',this)">🤖 <span id="mn-ia">Rapport IA</span></button>
       <button onclick="showSection('settings',this)">⚙️ <span id="mn-set">Paramètres</span></button>
       <button onclick="showSection('backup',this)">💾 <span id="mn-backup">Sauvegarde</span></button>
@@ -664,6 +665,31 @@ input:checked+.slider:before{transform:translateX(20px);}
       <div id="backup-status" style="display:none;padding:12px 16px;border-radius:10px;font-size:.84rem;font-weight:600;"></div>
     </div>
 
+    <!-- REPORTS -->
+    <div id="sec-reports" class="section">
+      <div class="page-header"><h2 id="tt-reports">📊 Rapports</h2><p id="tt-reports-sub">Analyses détaillées et export</p></div>
+      <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap">
+        <button class="btn btn-primary btn-sm" onclick="switchReportTab('sales')" id="rpt-tab-sales">Ventes</button>
+        <button class="btn btn-edit btn-sm" onclick="switchReportTab('purchases')" id="rpt-tab-purchases">Achats</button>
+        <button class="btn btn-edit btn-sm" onclick="switchReportTab('stock')" id="rpt-tab-stock">Stock</button>
+        <button class="btn btn-edit btn-sm" onclick="switchReportTab('clients')" id="rpt-tab-clients">Clients</button>
+        <button class="btn btn-edit btn-sm" onclick="switchReportTab('suppliers')" id="rpt-tab-suppliers">Fournisseurs</button>
+      </div>
+      <div id="rpt-filter" style="display:flex;gap:8px;align-items:center;margin-bottom:14px;flex-wrap:wrap">
+        <label style="font-size:.8rem" id="rpt-date-from">Du:</label>
+        <input type="date" id="rpt-date-from-val" style="padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:.8rem">
+        <label style="font-size:.8rem" id="rpt-date-to">Au:</label>
+        <input type="date" id="rpt-date-to-val" style="padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:.8rem">
+        <button class="btn btn-sm btn-primary" onclick="renderCurrentReportTab()">🔍 Filtrer</button>
+      </div>
+      <div id="rpt-cards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-bottom:14px"></div>
+      <div id="rpt-table-container"></div>
+      <div id="rpt-export-bar" style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
+        <button class="btn btn-sm btn-primary" onclick="exportReportPDF()">📄 PDF</button>
+        <button class="btn btn-sm btn-primary" onclick="exportReportExcel()">📊 Excel</button>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -927,6 +953,17 @@ const i18n = {
     gs_ph:'🔍 Rechercher produits, clients, fournisseurs, factures...',
     ci_title:'🏢 Informations de l\'entreprise',ci_lbl_name:'Nom de l\'entreprise',ci_lbl_ice:'ICE',ci_lbl_if:'IF',ci_lbl_rc:'RC',ci_lbl_address:'Adresse',ci_lbl_phone:'Téléphone',ci_lbl_email:'Email',ci_lbl_website:'Site web',ci_lbl_logo:'Logo',ci_logo_btn:'📁 Choisir un fichier',ci_save_btn:'💾 Enregistrer',ci_saved:'Informations enregistrées.',
     bk_invalid:'Fichier de sauvegarde invalide.',bk_success_export:'Fichier backup.json téléchargé.',bk_success_import:'Données restaurées avec succès.',bk_success_reset:'Toutes les données ont été effacées.',
+    bk_err_parse:'❌ Fichier JSON invalide.',bk_err_version:'❌ Version du fichier incompatible. Exportez un nouveau fichier depuis cette application.',bk_err_app_name:'❌ Fichier non reconnu.',bk_err_missing:'❌ Structure du fichier invalide.',bk_sync_progress:'⏳ Synchronisation avec la base de données...',bk_err_sync:'❌ Erreur lors de la synchronisation.',
+    mn_reports:'Rapports',tt_reports:'📊 Rapports',tt_reports_sub:'Analyses détaillées et export',
+    rpt_sales:'Ventes',rpt_purchases:'Achats',rpt_stock:'Stock',rpt_clients:'Clients',rpt_suppliers:'Fournisseurs',
+    rpt_date_from:'Du:',rpt_date_to:'Au:',rpt_filter:'🔍 Filtrer',
+    rpt_total_revenue:'Chiffre d\'affaires',rpt_num_invoices:'Factures',rpt_top_sold:'Top ventes',
+    rpt_num_receptions:'Réceptions',rpt_total_qty:'Qté reçue',rpt_top_purchased:'Top achats',
+    rpt_stock_total:'Produits',rpt_low_stock:'Stock faible',rpt_stock_value:'Valeur stock',
+    rpt_total_clients:'Clients',rpt_active_clients:'Actifs',rpt_inactive_clients:'Inactifs',
+    rpt_total_suppliers:'Fournisseurs',rpt_active_suppliers:'Avec réceptions',rpt_inactive_suppliers:'Sans réception',
+    rpt_inv_total:'Total facturé',rpt_last_inv:'Dernière facture',rpt_last_rec:'Dernière réception',
+    rpt_export_pdf:'📄 PDF',rpt_export_excel:'📊 Excel',rpt_no_data:'Aucune donnée pour cette période.',
     modal_add:'Ajouter un produit',modal_edit:'Modifier le produit',ml_name:'Nom',ml_cat:'Catégorie',ml_unit:'Unité',ml_emoji:'Emoji',ml_achat:'Prix achat (MAD)',ml_vente:'Prix vente TTC (MAD)',ml_qte:'Quantité',ml_seuil:"⚠️ Seuil d'alerte",ml_seuil_hint:'Alerte déclenchée quand le stock passe sous ce seuil',ml_cancel:'Annuler',ml_save:'Enregistrer',
     inv_col_qty:'Qté',inv_col_unit:'Unité',inv_col_total:'Total TTC',
     confirm_del_inv:'Supprimer cette facture ?',confirm_del_prod:'Supprimer ce produit ?',
@@ -1005,6 +1042,17 @@ const i18n = {
     gs_ph:'🔍 Search products, clients, suppliers, invoices...',
     ci_title:'🏢 Company Info',ci_lbl_name:'Company Name',ci_lbl_ice:'ICE',ci_lbl_if:'IF',ci_lbl_rc:'RC',ci_lbl_address:'Address',ci_lbl_phone:'Phone',ci_lbl_email:'Email',ci_lbl_website:'Website',ci_lbl_logo:'Logo',ci_logo_btn:'📁 Choose File',ci_save_btn:'💾 Save',ci_saved:'Company info saved.',
     bk_invalid:'Invalid backup file.',bk_success_export:'Backup file downloaded.',bk_success_import:'Data restored successfully.',bk_success_reset:'All data has been erased.',
+    bk_err_parse:'❌ Invalid JSON file.',bk_err_version:'❌ Incompatible backup version. Export a new file from this app.',bk_err_app_name:'❌ Unrecognized file.',bk_err_missing:'❌ Invalid file structure.',bk_sync_progress:'⏳ Syncing with database...',bk_err_sync:'❌ Sync failed.',
+    mn_reports:'Reports',tt_reports:'📊 Reports',tt_reports_sub:'Detailed analysis and export',
+    rpt_sales:'Sales',rpt_purchases:'Purchases',rpt_stock:'Stock',rpt_clients:'Clients',rpt_suppliers:'Suppliers',
+    rpt_date_from:'From:',rpt_date_to:'To:',rpt_filter:'🔍 Filter',
+    rpt_total_revenue:'Revenue',rpt_num_invoices:'Invoices',rpt_top_sold:'Top selling',
+    rpt_num_receptions:'Receptions',rpt_total_qty:'Qty received',rpt_top_purchased:'Top purchased',
+    rpt_stock_total:'Products',rpt_low_stock:'Low stock',rpt_stock_value:'Stock value',
+    rpt_total_clients:'Clients',rpt_active_clients:'Active',rpt_inactive_clients:'Inactive',
+    rpt_total_suppliers:'Suppliers',rpt_active_suppliers:'With receptions',rpt_inactive_suppliers:'No receptions',
+    rpt_inv_total:'Total invoiced',rpt_last_inv:'Last invoice',rpt_last_rec:'Last reception',
+    rpt_export_pdf:'📄 PDF',rpt_export_excel:'📊 Excel',rpt_no_data:'No data for this period.',
     modal_add:'Add product',modal_edit:'Edit product',ml_name:'Name',ml_cat:'Category',ml_unit:'Unit',ml_emoji:'Emoji',ml_achat:'Purchase price (MAD)',ml_vente:'Sale price TTC (MAD)',ml_qte:'Quantity',ml_seuil:'⚠️ Alert threshold',ml_seuil_hint:'Alert triggered when stock falls below this level',ml_cancel:'Cancel',ml_save:'Save',
     inv_col_qty:'Qty',inv_col_unit:'Unit',inv_col_total:'Total TTC',
     confirm_del_inv:'Delete this invoice?',confirm_del_prod:'Delete this product?',
@@ -1083,6 +1131,17 @@ const i18n = {
     gs_ph:'🔍 بحث عن منتجات، عملاء، موردين، فواتير...',
     ci_title:'🏢 معلومات الشركة',ci_lbl_name:'اسم الشركة',ci_lbl_ice:'ICE',ci_lbl_if:'IF',ci_lbl_rc:'RC',ci_lbl_address:'العنوان',ci_lbl_phone:'الهاتف',ci_lbl_email:'البريد الإلكتروني',ci_lbl_website:'الموقع الإلكتروني',ci_lbl_logo:'الشعار',ci_logo_btn:'📁 اختيار ملف',ci_save_btn:'💾 حفظ',ci_saved:'تم حفظ معلومات الشركة.',
     bk_invalid:'ملف النسخ الاحتياطي غير صالح.',bk_success_export:'تم تحميل ملف النسخ الاحتياطي.',bk_success_import:'تمت استعادة البيانات بنجاح.',bk_success_reset:'تم حذف جميع البيانات.',
+    bk_err_parse:'❌ ملف JSON غير صالح.',bk_err_version:'❌ إصدار الملف غير متوافق. قم بتصدير ملف جديد من هذا التطبيق.',bk_err_app_name:'❌ ملف غير معروف.',bk_err_missing:'❌ بنية الملف غير صالحة.',bk_sync_progress:'⏳ مزامنة مع قاعدة البيانات...',bk_err_sync:'❌ فشلت المزامنة.',
+    mn_reports:'التقارير',tt_reports:'📊 التقارير',tt_reports_sub:'تحليل مفصل وتصدير',
+    rpt_sales:'المبيعات',rpt_purchases:'المشتريات',rpt_stock:'المخزون',rpt_clients:'العملاء',rpt_suppliers:'الموردين',
+    rpt_date_from:'من:',rpt_date_to:'إلى:',rpt_filter:'🔍 تصفية',
+    rpt_total_revenue:'الإيرادات',rpt_num_invoices:'الفواتير',rpt_top_sold:'الأكثر مبيعاً',
+    rpt_num_receptions:'الاستلامات',rpt_total_qty:'الكمية المستلمة',rpt_top_purchased:'الأكثر شراءً',
+    rpt_stock_total:'المنتجات',rpt_low_stock:'المخزون المنخفض',rpt_stock_value:'قيمة المخزون',
+    rpt_total_clients:'العملاء',rpt_active_clients:'نشط',rpt_inactive_clients:'غير نشط',
+    rpt_total_suppliers:'الموردين',rpt_active_suppliers:'مع استلامات',rpt_inactive_suppliers:'بدون استلام',
+    rpt_inv_total:'إجمالي الفواتير',rpt_last_inv:'آخر فاتورة',rpt_last_rec:'آخر استلام',
+    rpt_export_pdf:'📄 PDF',rpt_export_excel:'📊 Excel',rpt_no_data:'لا توجد بيانات لهذه الفترة.',
     modal_add:'إضافة منتج',modal_edit:'تعديل المنتج',ml_name:'الاسم',ml_cat:'الفئة',ml_unit:'الوحدة',ml_emoji:'رمز',ml_achat:'سعر الشراء (درهم)',ml_vente:'سعر البيع (درهم)',ml_qte:'الكمية',ml_seuil:'⚠️ حد التنبيه',ml_seuil_hint:'يُطلق عند انخفاض المخزون عن هذا الحد',ml_cancel:'إلغاء',ml_save:'حفظ',
     inv_col_qty:'الكمية',inv_col_unit:'الوحدة',inv_col_total:'الإجمالي',
     confirm_del_inv:'حذف هذه الفاتورة؟',confirm_del_prod:'حذف هذا المنتج؟',
@@ -1214,6 +1273,8 @@ const LS_KEY_HISTORY   = 'amazzri_history';
 const LS_KEY_RECEIPTS  = 'amazzri_receipts';
 const LS_KEY_REC_COUNT = 'amazzri_reccount';
 const LS_KEY_COMPANY = 'companyInfo';
+const BACKUP_VERSION = 2;
+const BACKUP_APP_NAME = 'Amazzri Négoce';
 
 function saveData(){
   // localStorage no longer used — all entities persisted via Supabase
@@ -1836,11 +1897,167 @@ function showSection(id,btn){
   document.getElementById('sec-'+id).classList.add('active');btn.classList.add('active');
   const fn={dashboard:renderDashboard,products:renderProducts,alerts:renderAlerts,clients:renderClients,suppliers:renderSuppliers,history:renderStockHistory,reception:()=>{renderReceipts();buildRecSupplierDropdown();},ia:renderIAReport,
     invoices:()=>{renderInvoices();renderInvLines();buildProdDropdown();},
-    stats:()=>showStatTab('bestsellers'),backup:()=>{}}
+    stats:()=>showStatTab('bestsellers'),backup:()=>{},reports:renderReports}
   if(fn[id])fn[id]();
 }
 
 function renderAll(){renderDashboard();renderProducts();renderAlerts();renderClients();renderSuppliers();renderStockHistory();renderReceipts();renderInvoices();calcInvTotal();}
+
+// ── REPORTS ──
+let currentReportTab='sales';
+function renderReports(){currentReportTab='sales';const d=new Date();document.getElementById('rpt-date-from-val').value=new Date(d.getFullYear(),d.getMonth(),1).toISOString().slice(0,10);document.getElementById('rpt-date-to-val').value=d.toISOString().slice(0,10);renderCurrentReportTab();}
+function switchReportTab(tab){
+  currentReportTab=tab;
+  ['sales','purchases','stock','clients','suppliers'].forEach(t=>document.getElementById('rpt-tab-'+t).className=t===tab?'btn btn-primary btn-sm':'btn btn-edit btn-sm');
+  const hide=tab==='stock'||tab==='clients'||tab==='suppliers';
+  document.getElementById('rpt-filter').style.display=hide?'none':'flex';
+  renderCurrentReportTab();
+}
+function renderCurrentReportTab(){
+  const from=document.getElementById('rpt-date-from-val').value;
+  const to=document.getElementById('rpt-date-to-val').value;
+  const cards=document.getElementById('rpt-cards');const tbl=document.getElementById('rpt-table-container');
+  if(currentReportTab==='sales')renderSalesReport(from,to,cards,tbl);
+  else if(currentReportTab==='purchases')renderPurchasesReport(from,to,cards,tbl);
+  else if(currentReportTab==='stock')renderStockReport(cards,tbl);
+  else if(currentReportTab==='clients')renderClientReport(cards,tbl);
+  else if(currentReportTab==='suppliers')renderSupplierReport(cards,tbl);
+}
+function renderSalesReport(from,to,cards,tbl){
+  const invs=invoices.filter(i=>i.date&&i.date>=from&&i.date<=to);
+  const revenue=invs.reduce((s,i)=>s+(i.total||0),0);
+  const lines=invs.flatMap(i=>(i.lines||[]).map(l=>({...l,invId:i.id,invDate:i.date,client:i.client})));
+  const prodSales={};lines.forEach(l=>{const n=l.productName||'?';prodSales[n]=(prodSales[n]||0)+l.qty;});
+  const topSold=Object.entries(prodSales).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  cards.innerHTML=`<div class="card"><div class="label">${T('rpt_total_revenue')}</div><div class="value">${revenue.toLocaleString()} MAD</div></div><div class="card"><div class="label">${T('rpt_num_invoices')}</div><div class="value">${invs.length}</div></div><div class="card"><div class="label">${T('rpt_top_sold')}</div><div class="value">${topSold.length?topSold[0][0]:'—'}</div></div>`;
+  if(!invs.length){tbl.innerHTML=`<p style="color:var(--text-muted);padding:20px;text-align:center">${T('rpt_no_data')}</p>`;return;}
+  tbl.innerHTML=`<table><thead><tr><th>ID</th><th>${T('inv_date')}</th><th>${T('inv_client_lbl')}</th><th>${T('th_qte')}</th><th>${T('inv_total')}</th></tr></thead><tbody>${invs.map(i=>{const q=i.lines?i.lines.reduce((s,l)=>s+(l.qty||0),0):0;return`<tr><td>${i.id}</td><td>${i.date}</td><td>${i.client}</td><td>${q}</td><td>${(i.total||0).toLocaleString()}</td></tr>`;}).join('')}</tbody></table>`;
+}
+function renderPurchasesReport(from,to,cards,tbl){
+  const recs=receipts.filter(r=>r.date&&r.date>=from&&r.date<=to);
+  const totalQty=recs.reduce((s,r)=>s+(r.lines||[]).reduce((sl,l)=>sl+(l.qty||0),0),0);
+  const lines=recs.flatMap(r=>(r.lines||[]).map(l=>({...l,recId:r.id||r.display_id,recDate:r.date,supplier:r.supplier})) );
+  const prodPurch={};lines.forEach(l=>{const n=l.productName||'?';prodPurch[n]=(prodPurch[n]||0)+l.qty;});
+  const top=Object.entries(prodPurch).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  cards.innerHTML=`<div class="card"><div class="label">${T('rpt_num_receptions')}</div><div class="value">${recs.length}</div></div><div class="card"><div class="label">${T('rpt_total_qty')}</div><div class="value">${totalQty}</div></div><div class="card"><div class="label">${T('rpt_top_purchased')}</div><div class="value">${top.length?top[0][0]:'—'}</div></div>`;
+  if(!recs.length){tbl.innerHTML=`<p style="color:var(--text-muted);padding:20px;text-align:center">${T('rpt_no_data')}</p>`;return;}
+  tbl.innerHTML=`<table><thead><tr><th>ID</th><th>${T('inv_date')}</th><th>${T('th_sup_name')}</th><th>${T('th_qte')}</th></tr></thead><tbody>${recs.map(r=>{const q=r.lines?r.lines.reduce((s,l)=>s+(l.qty||0),0):0;return`<tr><td>${r.id||r.display_id}</td><td>${r.date}</td><td>${r.supplier}</td><td>${q}</td></tr>`;}).join('')}</tbody></table>`;
+}
+function renderStockReport(cards,tbl){
+  const low=products.filter(p=>isLow(p));
+  const val=products.reduce((s,p)=>s+((p.buy||0)*(p.qty||0)),0);
+  cards.innerHTML=`<div class="card"><div class="label">${T('rpt_stock_total')}</div><div class="value">${products.length}</div></div><div class="card"><div class="label">${T('rpt_low_stock')}</div><div class="value">${low.length}</div></div><div class="card"><div class="label">${T('rpt_stock_value')}</div><div class="value">${val.toLocaleString()} MAD</div></div>`;
+  if(!products.length){tbl.innerHTML=`<p style="color:var(--text-muted);padding:20px;text-align:center">${T('rpt_no_data')}</p>`;return;}
+  tbl.innerHTML=`<table><thead><tr><th>${T('ml_name')}</th><th>${T('ml_cat')}</th><th>${T('ml_qte')}</th><th>${T('ml_achat')}</th><th>${T('rpt_stock_value')}</th><th>${T('ml_seuil')}</th></tr></thead><tbody>${products.map(p=>{const lv=isLow(p);return`<tr${lv?' style="background:rgba(239,68,68,.08)"':''}><td>${p.emoji} ${p.name}</td><td>${p.category||'—'}</td><td>${p.qty}</td><td>${(p.buy||0).toFixed(2)}</td><td>${((p.buy||0)*(p.qty||0)).toLocaleString()}</td><td>${p.threshold||5}</td></tr>`;}).join('')}</tbody></table>`;
+}
+function renderClientReport(cards,tbl){
+  const withInv=clients.filter(c=>invoices.some(i=>i.clientId===c.id));
+  const without=clients.filter(c=>!invoices.some(i=>i.clientId===c.id));
+  cards.innerHTML=`<div class="card"><div class="label">${T('rpt_total_clients')}</div><div class="value">${clients.length}</div></div><div class="card"><div class="label">${T('rpt_active_clients')}</div><div class="value">${withInv.length}</div></div><div class="card"><div class="label">${T('rpt_inactive_clients')}</div><div class="value">${without.length}</div></div>`;
+  if(!clients.length){tbl.innerHTML=`<p style="color:var(--text-muted);padding:20px;text-align:center">${T('rpt_no_data')}</p>`;return;}
+  tbl.innerHTML=`<table><thead><tr><th>${T('th_cl_nom')}</th><th>ICE</th><th>${T('rpt_num_invoices')}</th><th>${T('rpt_inv_total')}</th><th>${T('rpt_last_inv')}</th></tr></thead><tbody>${clients.map(c=>{const cis=invoices.filter(i=>i.clientId===c.id);const tot=cis.reduce((s,i)=>s+(i.total||0),0);const last=cis.length?cis.reduce((a,b)=>(a.date||'')>(b.date||'')?a:b):null;return`<tr><td>${c.name}</td><td>${c.ice||'—'}</td><td>${cis.length}</td><td>${tot.toLocaleString()}</td><td>${last?last.date:'—'}</td></tr>`;}).join('')}</tbody></table>`;
+}
+function renderSupplierReport(cards,tbl){
+  const withRec=suppliers.filter(s=>receipts.some(r=>r.supplierId===s.id));
+  const without=suppliers.filter(s=>!receipts.some(r=>r.supplierId===s.id));
+  cards.innerHTML=`<div class="card"><div class="label">${T('rpt_total_suppliers')}</div><div class="value">${suppliers.length}</div></div><div class="card"><div class="label">${T('rpt_active_suppliers')}</div><div class="value">${withRec.length}</div></div><div class="card"><div class="label">${T('rpt_inactive_suppliers')}</div><div class="value">${without.length}</div></div>`;
+  if(!suppliers.length){tbl.innerHTML=`<p style="color:var(--text-muted);padding:20px;text-align:center">${T('rpt_no_data')}</p>`;return;}
+  tbl.innerHTML=`<table><thead><tr><th>${T('th_sup_name')}</th><th>${T('rpt_num_receptions')}</th><th>${T('rpt_total_qty')}</th><th>${T('rpt_last_rec')}</th></tr></thead><tbody>${suppliers.map(s=>{const rcs=receipts.filter(r=>r.supplierId===s.id);const q=rcs.reduce((sq,r)=>sq+(r.lines||[]).reduce((sl,l)=>sl+(l.qty||0),0),0);const last=rcs.length?rcs.reduce((a,b)=>(a.date||'')>(b.date||'')?a:b):null;return`<tr><td>${s.name}</td><td>${rcs.length}</td><td>${q}</td><td>${last?last.date:'—'}</td></tr>`;}).join('')}</tbody></table>`;
+}
+function exportReportPDF(){const tab=currentReportTab;const fn={'sales':exportSalesPDF,'purchases':exportPurchasesPDF,'stock':exportStockPDF,'clients':exportClientsPDF,'suppliers':exportSuppliersPDF}[tab];if(fn)fn();}
+function exportReportExcel(){const tab=currentReportTab;const fn={'sales':exportSalesExcel,'purchases':exportPurchasesExcel,'stock':exportStockExcel,'clients':exportClientsExcel,'suppliers':exportSuppliersExcel}[tab];if(fn)fn();}
+function exportSalesPDF(){
+  const {jsPDF}=window.jspdf;const doc=new jsPDF({unit:'mm',format:'a4'});const pw=doc.internal.pageSize.getWidth(),m=14;
+  const from=document.getElementById('rpt-date-from-val').value,to=document.getElementById('rpt-date-to-val').value;
+  const invs=invoices.filter(i=>i.date&&i.date>=from&&i.date<=to);const revenue=invs.reduce((s,i)=>s+(i.total||0),0);
+  doc.setFontSize(16);doc.text('Rapport des Ventes',m,20);
+  doc.setFontSize(10);doc.text(`Période: ${from} → ${to}`,m,28);
+  doc.setFontSize(11);doc.text(`Chiffre d\'affaires: ${revenue.toLocaleString()} MAD  |  Factures: ${invs.length}`,m,36);
+  if(invs.length){const rows=invs.map(i=>[i.id,i.date,i.client,String((i.lines||[]).reduce((s,l)=>s+(l.qty||0),0)),(i.total||0).toFixed(2)+' MAD']);
+  doc.autoTable({startY:42,margin:{left:m,right:m},head:[['ID','Date','Client','Qté','Total']],body:rows,styles:{fontSize:8},headStyles:{fillColor:[50,50,50]}});}
+  doc.save('rapport_ventes.pdf');
+}
+function exportSalesExcel(){
+  const from=document.getElementById('rpt-date-from-val').value,to=document.getElementById('rpt-date-to-val').value;
+  const invs=invoices.filter(i=>i.date&&i.date>=from&&i.date<=to);
+  const wb=XLSX.utils.book_new();
+  const data=invs.map(i=>({ID:i.id,Date:i.date,Client:i.client,'Qté':(i.lines||[]).reduce((s,l)=>s+(l.qty||0),0),'Total MAD':i.total||0}));
+  const ws=XLSX.utils.json_to_sheet(data);
+  ws['!cols']=[{wch:12},{wch:12},{wch:25},{wch:8},{wch:14}];
+  XLSX.utils.book_append_sheet(wb,ws,'Ventes');
+  XLSX.writeFile(wb,'rapport_ventes.xlsx');
+}
+function exportPurchasesPDF(){
+  const {jsPDF}=window.jspdf;const doc=new jsPDF({unit:'mm',format:'a4'});const m=14;
+  const from=document.getElementById('rpt-date-from-val').value,to=document.getElementById('rpt-date-to-val').value;
+  const recs=receipts.filter(r=>r.date&&r.date>=from&&r.date<=to);
+  const qty=recs.reduce((s,r)=>s+(r.lines||[]).reduce((sl,l)=>sl+(l.qty||0),0),0);
+  doc.setFontSize(16);doc.text('Rapport des Achats',m,20);
+  doc.setFontSize(10);doc.text(`Période: ${from} → ${to}`,m,28);
+  doc.setFontSize(11);doc.text(`Réceptions: ${recs.length}  |  Qté totale: ${qty}`,m,36);
+  if(recs.length){const rows=recs.map(r=>[r.id||r.display_id,r.date,r.supplier,String((r.lines||[]).reduce((s,l)=>s+(l.qty||0),0))]);
+  doc.autoTable({startY:42,margin:{left:m,right:m},head:[['ID','Date','Fournisseur','Qté']],body:rows,styles:{fontSize:8},headStyles:{fillColor:[50,50,50]}});}
+  doc.save('rapport_achats.pdf');
+}
+function exportPurchasesExcel(){
+  const from=document.getElementById('rpt-date-from-val').value,to=document.getElementById('rpt-date-to-val').value;
+  const recs=receipts.filter(r=>r.date&&r.date>=from&&r.date<=to);
+  const wb=XLSX.utils.book_new();
+  const data=recs.map(r=>({ID:r.id||r.display_id,Date:r.date,Fournisseur:r.supplier,'Qté':(r.lines||[]).reduce((s,l)=>s+(l.qty||0),0)}));
+  const ws=XLSX.utils.json_to_sheet(data);
+  ws['!cols']=[{wch:12},{wch:12},{wch:25},{wch:8}];
+  XLSX.utils.book_append_sheet(wb,ws,'Achats');
+  XLSX.writeFile(wb,'rapport_achats.xlsx');
+}
+function exportStockPDF(){
+  const {jsPDF}=window.jspdf;const doc=new jsPDF({unit:'mm',format:'a4'});const m=14;
+  const low=products.filter(p=>isLow(p));const val=products.reduce((s,p)=>s+((p.buy||0)*(p.qty||0)),0);
+  doc.setFontSize(16);doc.text('Rapport du Stock',m,20);
+  doc.setFontSize(11);doc.text(`Produits: ${products.length}  |  Stock faible: ${low.length}  |  Valeur: ${val.toLocaleString()} MAD`,m,28);
+  if(products.length){const rows=products.map(p=>[p.name,p.category||'—',String(p.qty),(p.buy||0).toFixed(2),((p.buy||0)*(p.qty||0)).toFixed(2),isLow(p)?'⚠️':'✓']);
+  doc.autoTable({startY:35,margin:{left:m,right:m},head:[['Produit','Catégorie','Qté','Prix achat','Valeur','Stk']],body:rows,styles:{fontSize:7.5},headStyles:{fillColor:[50,50,50]}});}
+  doc.save('rapport_stock.pdf');
+}
+function exportStockExcel(){
+  const wb=XLSX.utils.book_new();
+  const data=products.map(p=>({Produit:p.name,Catégorie:p.category||'','Qté':p.qty,'Prix achat MAD':p.buy||0,'Valeur MAD':((p.buy||0)*(p.qty||0)).toFixed(2),Stock:isLow(p)?'Faible':'OK'}));
+  const ws=XLSX.utils.json_to_sheet(data);
+  ws['!cols']=[{wch:25},{wch:15},{wch:8},{wch:14},{wch:14},{wch:8}];
+  XLSX.utils.book_append_sheet(wb,ws,'Stock');
+  XLSX.writeFile(wb,'rapport_stock.xlsx');
+}
+function exportClientsPDF(){
+  const {jsPDF}=window.jspdf;const doc=new jsPDF({unit:'mm',format:'a4'});const m=14;
+  doc.setFontSize(16);doc.text('Rapport des Clients',m,20);
+  doc.setFontSize(11);doc.text(`Total: ${clients.length}  |  Actifs: ${clients.filter(c=>invoices.some(i=>i.clientId===c.id)).length}`,m,28);
+  if(clients.length){const rows=clients.map(c=>{const cis=invoices.filter(i=>i.clientId===c.id);const tot=cis.reduce((s,i)=>s+(i.total||0),0);const last=cis.length?cis.reduce((a,b)=>(a.date||'')>(b.date||'')?a:b):null;return[c.name,c.ice||'—',String(cis.length),tot.toFixed(2)+' MAD',last?last.date:'—'];});
+  doc.autoTable({startY:35,margin:{left:m,right:m},head:[['Nom','ICE','Factures','Total','Dernière']],body:rows,styles:{fontSize:8},headStyles:{fillColor:[50,50,50]}});}
+  doc.save('rapport_clients.pdf');
+}
+function exportClientsExcel(){
+  const wb=XLSX.utils.book_new();
+  const data=clients.map(c=>{const cis=invoices.filter(i=>i.clientId===c.id);return{Nom:c.name,ICE:c.ice||'',Factures:cis.length,'Total MAD':cis.reduce((s,i)=>s+(i.total||0),0),'Dernière facture':cis.length?cis.reduce((a,b)=>(a.date||'')>(b.date||'')?a:b).date:''};});
+  const ws=XLSX.utils.json_to_sheet(data);
+  ws['!cols']=[{wch:25},{wch:18},{wch:10},{wch:14},{wch:14}];
+  XLSX.utils.book_append_sheet(wb,ws,'Clients');
+  XLSX.writeFile(wb,'rapport_clients.xlsx');
+}
+function exportSuppliersPDF(){
+  const {jsPDF}=window.jspdf;const doc=new jsPDF({unit:'mm',format:'a4'});const m=14;
+  doc.setFontSize(16);doc.text('Rapport des Fournisseurs',m,20);
+  doc.setFontSize(11);doc.text(`Total: ${suppliers.length}  |  Avec réceptions: ${suppliers.filter(s=>receipts.some(r=>r.supplierId===s.id)).length}`,m,28);
+  if(suppliers.length){const rows=suppliers.map(s=>{const rcs=receipts.filter(r=>r.supplierId===s.id);const q=rcs.reduce((sq,r)=>sq+(r.lines||[]).reduce((sl,l)=>sl+(l.qty||0),0),0);const last=rcs.length?rcs.reduce((a,b)=>(a.date||'')>(b.date||'')?a:b):null;return[s.name,String(rcs.length),String(q),last?last.date:'—'];});
+  doc.autoTable({startY:35,margin:{left:m,right:m},head:[['Nom','Réceptions','Qté','Dernière']],body:rows,styles:{fontSize:8},headStyles:{fillColor:[50,50,50]}});}
+  doc.save('rapport_fournisseurs.pdf');
+}
+function exportSuppliersExcel(){
+  const wb=XLSX.utils.book_new();
+  const data=suppliers.map(s=>{const rcs=receipts.filter(r=>r.supplierId===s.id);return{Nom:s.name,Réceptions:rcs.length,'Qté totale':rcs.reduce((sq,r)=>sq+(r.lines||[]).reduce((sl,l)=>sl+(l.qty||0),0),0),'Dernière réception':rcs.length?rcs.reduce((a,b)=>(a.date||'')>(b.date||'')?a:b).date:''};});
+  const ws=XLSX.utils.json_to_sheet(data);
+  ws['!cols']=[{wch:25},{wch:12},{wch:12},{wch:16}];
+  XLSX.utils.book_append_sheet(wb,ws,'Fournisseurs');
+  XLSX.writeFile(wb,'rapport_fournisseurs.xlsx');
+}
 
 function isLow(p){return p.qty<=(p.threshold||5);}
 
@@ -3068,14 +3285,42 @@ document.addEventListener('click',function(e){
 });
 
 // ── BACKUP & RESTORE ──
+async function syncAllToSupabase(){
+  showBackupStatus('⏳ '+T('bk_sync_progress'),'info');
+  try{
+    await sb.from('products').delete().neq('id','00000000-0000-0000-0000-000000000000');
+    await sb.from('clients').delete().neq('id','00000000-0000-0000-0000-000000000000');
+    await sb.from('suppliers').delete().neq('id','00000000-0000-0000-0000-000000000000');
+    await sb.from('receipts').delete().neq('id','00000000-0000-0000-0000-000000000000');
+    await sb.from('invoices').delete().neq('id','00000000-0000-0000-0000-000000000000');
+    await sb.from('stock_movements').delete().neq('id','00000000-0000-0000-0000-000000000000');
+    for(const p of products) await createProductOnSupabase(p);
+    for(const c of clients) await createClientOnSupabase(c);
+    for(const s of suppliers) await createSupplierOnSupabase(s);
+    for(const r of receipts) await createReceptionOnSupabase(r);
+    for(const i of invoices) await createInvoiceOnSupabase(i);
+    for(const h of stockHistory) await createStockMovementOnSupabase(h);
+    await loadProductsFromSupabase();
+    await loadClientsFromSupabase();
+    await loadSuppliersFromSupabase();
+    await loadReceptionsFromSupabase();
+    await loadInvoicesFromSupabase();
+    await loadStockMovementsFromSupabase();
+  }catch(e){
+    console.error('[SYNC] error:',e);
+    showBackupStatus('❌ '+T('bk_err_sync'),'error');
+  }
+}
 function exportBackup(){
-  let companyBackup=null;
-  try{companyBackup=JSON.parse(localStorage.getItem(LS_KEY_COMPANY));}catch(e){}
+  let ci=null;
+  try{ci=JSON.parse(localStorage.getItem(LS_KEY_COMPANY));}catch(e){}
   const data={
-    version:1,
-    exportedAt:new Date().toISOString(),
+    appName: BACKUP_APP_NAME,
+    version: BACKUP_VERSION,
+    createdAt: new Date().toISOString(),
     products, invoices, invoiceCounter, clients, suppliers, stockHistory, receipts, receiptCounter,
-    companyInfo:companyBackup, companyLogo:COMPANY_LOGO!==LOGO_SRC?COMPANY_LOGO:null,
+    companyInfo: ci||{...COMPANY},
+    companyLogo:COMPANY_LOGO!==LOGO_SRC?COMPANY_LOGO:null,
     settings:{lang,theme:document.body.getAttribute('data-theme')||'dark'}
   };
   const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
@@ -3087,15 +3332,15 @@ function exportBackup(){
 function handleImportBackup(event){
   const file=event.target.files[0];if(!file)return;
   const reader=new FileReader();
-  reader.onload=function(e){
+  reader.onload=async function(e){
     try{
       const data=JSON.parse(e.target.result);
-      // Validate structure
-      if(!data||typeof data!=='object'||!Array.isArray(data.products)||!Array.isArray(data.invoices)||!Array.isArray(data.clients)||!Array.isArray(data.suppliers)||!Array.isArray(data.stockHistory)||!Array.isArray(data.receipts)){
-        showBackupStatus('❌ '+T('bk_invalid'),'error');return;
-      }
+      if(!data||typeof data!=='object'){showBackupStatus('❌ '+T('bk_err_parse'),'error');return;}
+      if(data.appName!==BACKUP_APP_NAME){showBackupStatus('❌ '+T('bk_err_app_name'),'error');return;}
+      if(typeof data.version!=='number'||data.version!==BACKUP_VERSION){showBackupStatus('❌ '+T('bk_err_version'),'error');return;}
+      const required=['products','invoices','clients','suppliers','stockHistory','receipts'];
+      for(const k of required){if(!Array.isArray(data[k])){showBackupStatus('❌ '+T('bk_err_missing'),'error');return;}}
       if(!confirm(T('bk_confirm_import')))return;
-      // Restore all data
       products=data.products||[];
       invoices=data.invoices||[];
       invoiceCounter=typeof data.invoiceCounter==='number'?data.invoiceCounter:1;
@@ -3104,24 +3349,32 @@ function handleImportBackup(event){
       stockHistory=data.stockHistory||[];
       receipts=data.receipts||[];
       receiptCounter=typeof data.receiptCounter==='number'?data.receiptCounter:1;
+      await syncAllToSupabase();
       if(data.settings&&data.settings.lang)setLang(data.settings.lang);
       if(data.settings&&data.settings.theme)applyDarkMode(data.settings.theme==='dark');
       if(data.companyInfo){localStorage.setItem(LS_KEY_COMPANY,JSON.stringify(data.companyInfo));}
       if(data.companyLogo){COMPANY_LOGO=data.companyLogo;localStorage.setItem(LS_KEY_COMPANY,JSON.stringify({...(data.companyInfo||{}),logo:data.companyLogo}));}
       loadCompany();
-      saveData();
       renderAll();
       showBackupStatus('✅ '+T('bk_success_import'),'success');
     }catch(err){
-      showBackupStatus('❌ '+T('bk_invalid'),'error');
+      showBackupStatus('❌ '+T('bk_err_parse'),'error');
     }
   };
   reader.readAsText(file);
   event.target.value='';
 }
-function resetAppData(){
+async function resetAppData(){
   if(!confirm(T('bk_confirm_reset')))return;
   initData();
+  try{
+    await sb.from('products').delete().neq('id','00000000-0000-0000-0000-000000000000');
+    await sb.from('clients').delete().neq('id','00000000-0000-0000-0000-000000000000');
+    await sb.from('suppliers').delete().neq('id','00000000-0000-0000-0000-000000000000');
+    await sb.from('receipts').delete().neq('id','00000000-0000-0000-0000-000000000000');
+    await sb.from('invoices').delete().neq('id','00000000-0000-0000-0000-000000000000');
+    await sb.from('stock_movements').delete().neq('id','00000000-0000-0000-0000-000000000000');
+  }catch(e){console.error('[RAD] Supabase clear error:',e);}
   localStorage.removeItem(LS_KEY_COMPANY);
   loadCompany();
   renderAll();
@@ -3132,10 +3385,10 @@ function showBackupStatus(msg,type){
   if(!el)return;
   el.style.display='block';
   el.textContent=msg;
-  el.style.background=type==='error'?'rgba(239,68,68,.12)':'rgba(16,185,129,.12)';
-  el.style.color=type==='error'?'var(--danger)':'var(--success)';
-  el.style.border='1px solid '+(type==='error'?'rgba(239,68,68,.25)':'rgba(16,185,129,.25)');
-  setTimeout(()=>{el.style.display='none';},4000);
+  el.style.background=type==='error'?'rgba(239,68,68,.12)':type==='info'?'rgba(59,130,246,.12)':'rgba(16,185,129,.12)';
+  el.style.color=type==='error'?'var(--danger)':type==='info'?'var(--primary)':'var(--success)';
+  el.style.border='1px solid '+(type==='error'?'rgba(239,68,68,.25)':type==='info'?'rgba(59,130,246,.25)':'rgba(16,185,129,.25)');
+  if(type!=='info') setTimeout(()=>{el.style.display='none';},4000);
 }
 
 // ── INIT ──
