@@ -1249,6 +1249,7 @@ async function doLogin(){
   await loadReceptionsFromSupabase();
   await loadInvoicesFromSupabase();
   await loadStockMovementsFromSupabase();
+  renderDashboardAnalytics();
   document.getElementById('login-screen').style.display='none';
   document.getElementById('app').style.display='flex';
   document.getElementById('set-user-val').textContent=currentUser;
@@ -1271,6 +1272,7 @@ async function restoreSession(){
     await loadReceptionsFromSupabase();
     await loadInvoicesFromSupabase();
     await loadStockMovementsFromSupabase();
+    renderDashboardAnalytics();
     document.getElementById('login-screen').style.display='none';
     document.getElementById('app').style.display='flex';
     document.getElementById('set-user-val').textContent=currentUser;
@@ -1852,65 +1854,89 @@ function getStockLevel(p){
   return 'ok';
 }
 
-function renderDashboard(){
-  const totalVal=products.reduce((s,p)=>s+((p.buy||0)*(p.qty||0)),0);
-  document.getElementById('stat-total').textContent=products.length;
-  document.getElementById('stat-value').textContent=totalVal.toLocaleString();
-  document.getElementById('stat-low').textContent=products.filter(p=>isLow(p)).length;
-  document.getElementById('stat-clients').textContent=clients.length;
-  document.getElementById('stat-suppliers').textContent=suppliers.length;
-  document.getElementById('stat-invoices').textContent=invoices.length;
-  // Monthly revenue
-  const now=new Date();const ym=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
-  const monthInvs=invoices.filter(i=>i.date&&i.date.startsWith(ym));
-  const monthRev=monthInvs.reduce((s,i)=>s+(i.total||0),0);
-  document.getElementById('stat-revenue').textContent=monthRev.toLocaleString();
-  // Period revenue cards
+function computeDashboardAnalytics(){
+  const now=new Date();
+  const ym=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
   const todayStr=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0');
-  const dayOfWeek=now.getDay();const monOffset=dayOfWeek===0?-6:1-dayOfWeek;
-  const mon=new Date(now);mon.setDate(now.getDate()+monOffset);
+  const dow=now.getDay();const mon=new Date(now);mon.setDate(now.getDate()+(dow===0?-6:1-dow));
   const weekStart=mon.getFullYear()+'-'+String(mon.getMonth()+1).padStart(2,'0')+'-'+String(mon.getDate()).padStart(2,'0');
-  const todayRev=invoices.filter(i=>i.date===todayStr).reduce((s,i)=>s+(i.total||0),0);
-  const weekRev=invoices.filter(i=>i.date&&i.date>=weekStart&&i.date<=todayStr).reduce((s,i)=>s+(i.total||0),0);
-  document.getElementById('stat-rev-today').textContent=todayRev.toLocaleString();
-  document.getElementById('stat-rev-week').textContent=weekRev.toLocaleString();
-  document.getElementById('stat-rev-month').textContent=monthRev.toLocaleString();
-  // Monthly movements
-  const monthMvmts=stockHistory.filter(h=>h.date&&h.date.startsWith(ym)).length;
-  document.getElementById('stat-mvmts').textContent=monthMvmts;
+  return{
+    totalProducts:products.length,
+    totalClients:clients.length,
+    totalSuppliers:suppliers.length,
+    totalInvoices:invoices.length,
+    totalReceptions:receipts.length,
+    totalRevenue:invoices.reduce((s,i)=>s+(i.total||0),0),
+    totalPurchases:receipts.reduce((s,r)=>s+(r.lines||[]).reduce((sl,l)=>{const p=products.find(x=>x.id===l.productId);return sl+(p?(p.buy||0)*l.qty:0);},0),0),
+    lowStockCount:products.filter(p=>isLow(p)).length,
+    lowStock:products.filter(p=>isLow(p)),
+    topSold:Object.entries(invoices.reduce((m,i)=>{(i.lines||[]).forEach(l=>{const n=l.productName||'?';m[n]=(m[n]||0)+l.qty;});return m;},{})).sort((a,b)=>b[1]-a[1]).slice(0,5),
+    topPurchased:Object.entries(receipts.reduce((m,r)=>{(r.lines||[]).forEach(l=>{const n=l.productName||'?';m[n]=(m[n]||0)+l.qty;});return m;},{})).sort((a,b)=>b[1]-a[1]).slice(0,5),
+    stockValue:products.reduce((s,p)=>s+((p.buy||0)*(p.qty||0)),0),
+    monthRevenue:invoices.filter(i=>i.date&&i.date.startsWith(ym)).reduce((s,i)=>s+(i.total||0),0),
+    monthReceptions:receipts.filter(r=>r.date&&r.date.startsWith(ym)).length,
+    monthInvoiceCount:invoices.filter(i=>i.date&&i.date.startsWith(ym)).length,
+    todayRevenue:invoices.filter(i=>i.date===todayStr).reduce((s,i)=>s+(i.total||0),0),
+    weekRevenue:invoices.filter(i=>i.date&&i.date>=weekStart&&i.date<=todayStr).reduce((s,i)=>s+(i.total||0),0),
+    monthMovements:stockHistory.filter(h=>h.date&&h.date.startsWith(ym)).length,
+  };
+}
+function renderDashboardAnalytics(){
+  const a=computeDashboardAnalytics();
+  document.getElementById('stat-total').textContent=a.totalProducts;
+  document.getElementById('stat-value').textContent=a.stockValue.toLocaleString();
+  document.getElementById('stat-revenue').textContent=a.totalRevenue.toLocaleString();
+  document.getElementById('stat-rev-today').textContent=a.todayRevenue.toLocaleString();
+  document.getElementById('stat-rev-week').textContent=a.weekRevenue.toLocaleString();
+  document.getElementById('stat-rev-month').textContent=a.monthRevenue.toLocaleString();
+  document.getElementById('stat-low').textContent=a.lowStockCount;
+  document.getElementById('stat-clients').textContent=a.totalClients;
+  document.getElementById('stat-suppliers').textContent=a.totalSuppliers;
+  document.getElementById('stat-invoices').textContent=a.totalInvoices;
+  document.getElementById('stat-mvmts').textContent=a.monthMovements;
+  // Extra cards
+  const grid=document.getElementById('dash-cards');
+  if(!document.getElementById('stat-receptions')){
+    const h=grid.innerHTML;
+    grid.innerHTML=h+`<div class="card"><div class="label">Réceptions</div><div class="value" id="stat-receptions">${a.totalReceptions}</div><div class="hint">enregistrées</div></div><div class="card"><div class="label">Achats</div><div class="value" id="stat-purchases">${a.totalPurchases.toLocaleString()}</div><div class="hint">MAD</div></div><div class="card"><div class="label">Factures ce mois</div><div class="value" id="stat-month-invoices">${a.monthInvoiceCount}</div><div class="hint">ce mois</div></div><div class="card"><div class="label">Réceptions ce mois</div><div class="value" id="stat-month-receptions">${a.monthReceptions}</div><div class="hint">ce mois</div></div>`;
+  }else{
+    document.getElementById('stat-receptions').textContent=a.totalReceptions;
+    document.getElementById('stat-purchases').textContent=a.totalPurchases.toLocaleString();
+    document.getElementById('stat-month-invoices').textContent=a.monthInvoiceCount;
+    document.getElementById('stat-month-receptions').textContent=a.monthReceptions;
+  }
   // Low stock alerts
-  const low=products.filter(p=>isLow(p));
-  document.getElementById('dash-alerts').innerHTML=low.map(p=>`<div class="alert-banner"><div class="alert-dot"></div>⚠️ <strong>${p.emoji} ${p.name}</strong> — ${p.qty} ${T('alert_unit')} ${p.threshold||5}</div>`).join('');
+  const al=document.getElementById('dash-alerts');
+  al.innerHTML=a.lowStock.length?a.lowStock.map(p=>`<div class="alert-banner"><div class="alert-dot"></div>⚠️ <strong>${p.emoji} ${p.name}</strong> — ${p.qty} ${T('alert_unit')} ${p.threshold||5}</div>`).join(''):'';
   // Recent invoices widget
   const ri=document.getElementById('dash-recent-invoices');
   const recentInv=[...invoices].reverse().slice(0,5);
   ri.innerHTML=recentInv.length?recentInv.map(i=>`<div class="wi-row"><span class="wi-prod">🧾 ${i.id}</span><span class="wi-val">${i.client} · ${(i.total||0).toLocaleString()} MAD</span></div>`).join(''):`<div class="wi-empty">${T('wi_no_invoices')}</div>`;
-  // Recent stock entries widget (STOCK_IN from history)
+  // Recent stock entries
   const rs=document.getElementById('dash-recent-stock');
   const recentStock=[...stockHistory].filter(h=>h.type==='STOCK_IN').reverse().slice(0,5);
   rs.innerHTML=recentStock.length?recentStock.map(h=>`<div class="wi-row"><span class="wi-prod">📦 ${h.productName}</span><span class="wi-val">+${h.quantity} · ${h.date}</span></div>`).join(''):`<div class="wi-empty">${T('wi_no_stock')}</div>`;
-  // Top products widget (by invoice line quantity)
+  // Top sold products widget
   const tp=document.getElementById('dash-top-products');
-  const prodSales={};invoices.forEach(i=>i.lines&&i.lines.forEach(l=>{prodSales[l.productName||l.productId]=(prodSales[l.productName||l.productId]||0)+l.qty;}));
-  const top=Object.entries(prodSales).sort((a,b)=>b[1]-a[1]).slice(0,5);
-  tp.innerHTML=top.length?top.map(([name,qty],idx)=>`<div class="wi-row"><span class="wi-prod">${idx+1}. ${name}</span><span class="wi-val">${qty} vendus</span></div>`).join(''):`<div class="wi-empty">${T('wi_no_products')}</div>`;
+  tp.innerHTML=a.topSold.length?a.topSold.map(([n,q],i)=>`<div class="wi-row"><span class="wi-prod">${i+1}. ${n}</span><span class="wi-val">${q} vendus</span></div>`).join(''):`<div class="wi-empty">${T('wi_no_products')}</div>`;
+  // Top purchased products widget
+  let tpw=document.getElementById('dash-top-purchased');
+  if(!tpw){
+    const w=document.querySelector('.dash-widgets');
+    if(w){const d=document.createElement('div');d.className='widget';d.innerHTML=`<div class="widget-title">📦 Produits les plus achetés</div><div id="dash-top-purchased" class="widget-body"></div>`;w.appendChild(d);tpw=document.getElementById('dash-top-purchased');}
+  }
+  if(tpw)tpw.innerHTML=a.topPurchased.length?a.topPurchased.map(([n,q],i)=>`<div class="wi-row"><span class="wi-prod">${i+1}. ${n}</span><span class="wi-val">${q} achetés</span></div>`).join(''):`<div class="wi-empty">Aucun achat</div>`;
   // Low stock widget
-  const lsWidget=document.getElementById('dash-low-stock');
-  const lowProds=products.filter(p=>isLow(p)).sort((a,b)=>a.qty-b.qty);
-  if(!lowProds.length){lsWidget.innerHTML=`<div class="wi-empty">✅ ${T('no_alert')}</div>`;}
+  const lw=document.getElementById('dash-low-stock');
+  const lp=a.lowStock.sort((a,b)=>a.qty-b.qty);
+  if(!lp.length){lw.innerHTML=`<div class="wi-empty">✅ ${T('no_alert')}</div>`;}
   else{
-    const lowHtml=lowProds.map(p=>{
-      const level=getStockLevel(p);
-      const dotClass=level==='critical'?'wi-stock-critical':'wi-stock-low';
-      const badgeClass=level==='critical'?'badge critical':'badge low-stock';
-      const badgeLabel=T(level==='critical'?'stock_critical':'stock_low');
-      return`<div class="wi-row"><span class="wi-prod" style="display:flex;align-items:center;gap:4px;max-width:55%;overflow:hidden;text-overflow:ellipsis"><span class="${dotClass}"></span>${p.emoji} ${p.name}</span><span class="wi-val"><span class="${badgeClass}" style="margin-right:4px">${badgeLabel}</span>${p.qty} / ${p.threshold||5}</span></div>`;
-    }).join('');
-    lsWidget.innerHTML=lowHtml+`<div class="wi-row" style="justify-content:center;border-bottom:none;padding:8px 0 2px"><button class="btn btn-edit btn-sm" onclick="showSection('products',document.querySelector('nav button:nth-child(2)'))">🔍 ${T('tt_alert')}</button></div>`;
+    lw.innerHTML=lp.map(p=>{const lv=getStockLevel(p);return`<div class="wi-row"><span class="wi-prod" style="display:flex;align-items:center;gap:4px;max-width:55%;overflow:hidden;text-overflow:ellipsis"><span class="${lv==='critical'?'wi-stock-critical':'wi-stock-low'}"></span>${p.emoji} ${p.name}</span><span class="wi-val"><span class="badge ${lv==='critical'?'critical':'low-stock'}">${T(lv==='critical'?'stock_critical':'stock_low')}</span>${p.qty} / ${p.threshold||5}</span></div>`;}).join('')+`<div class="wi-row" style="justify-content:center;border-bottom:none;padding:8px 0 2px"><button class="btn btn-edit btn-sm" onclick="showSection('products',document.querySelector('nav button:nth-child(2)'))">🔍 ${T('tt_alert')}</button></div>`;
   }
   // Charts
   renderSalesChart();renderTopSellingChart();renderStockMvmtChart();
 }
+function renderDashboard(){renderDashboardAnalytics();}
 function drawBar(canvasId,labels,data,color,label){
   const c=document.getElementById(canvasId);if(!c)return;
   const ctx=c.getContext('2d');if(!ctx)return;const W=c.width=c.offsetWidth||300;const H=c.height=200;
