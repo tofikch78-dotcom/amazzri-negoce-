@@ -1217,18 +1217,12 @@ const LS_KEY_COMPANY = 'companyInfo';
 
 function saveData(){
   try{
-    localStorage.setItem(LS_KEY_INVOICES,  JSON.stringify(invoices));
-    localStorage.setItem(LS_KEY_COUNTER,   String(invoiceCounter));
     localStorage.setItem(LS_KEY_HISTORY,   JSON.stringify(stockHistory));
   }catch(e){console.warn('Save error',e);}
 }
 
 function loadData(){
-  const i = localStorage.getItem(LS_KEY_INVOICES);
-  const c = localStorage.getItem(LS_KEY_COUNTER);
   const sh = localStorage.getItem(LS_KEY_HISTORY);
-  try{if(i) invoices=JSON.parse(i);}catch(e){console.warn('Failed to load invoices',e);}
-  if(c) invoiceCounter=parseInt(c,10)||1;
   try{if(sh) stockHistory=JSON.parse(sh);}catch(e){console.warn('Failed to load stock history',e);}
 }
 
@@ -1256,6 +1250,7 @@ async function doLogin(){
   await loadClientsFromSupabase();
   await loadSuppliersFromSupabase();
   await loadReceptionsFromSupabase();
+  await loadInvoicesFromSupabase();
   document.getElementById('login-screen').style.display='none';
   document.getElementById('app').style.display='flex';
   document.getElementById('set-user-val').textContent=currentUser;
@@ -1276,6 +1271,7 @@ async function restoreSession(){
     await loadClientsFromSupabase();
     await loadSuppliersFromSupabase();
     await loadReceptionsFromSupabase();
+    await loadInvoicesFromSupabase();
     document.getElementById('login-screen').style.display='none';
     document.getElementById('app').style.display='flex';
     document.getElementById('set-user-val').textContent=currentUser;
@@ -1633,6 +1629,112 @@ async function deleteReceptionOnSupabase(id){
     return true;
   }catch(e){console.error('deleteReceptionOnSupabase failed',e);return false;}
   finally{console.log('=== DELETE RECEPTION END ===');}
+}
+
+// ── INVOICES REPOSITORY (Supabase) ──
+function mapInvoiceFromSupabase(row){
+  return{
+    id:row.display_id,
+    seqId:row.seq_id,
+    supabaseId:row.id,
+    client:row.client_name,
+    ice:row.client_ice||'',
+    tel:row.client_tel||'',
+    addr:row.client_addr||'',
+    note:row.note||'',
+    date:row.issue_date,
+    lines:row.lines||[],
+    total:Number(row.total),
+    tva:row.tva!=null?Number(row.tva):undefined,
+    mode:row.mode||'espece',
+    modeRef:row.mode_ref||'',
+  };
+}
+function mapInvoiceToSupabase(invoice){
+  const body={
+    seq_id:invoice.seqId,
+    display_id:invoice.id,
+    legacy_id:invoice.seqId,
+    client_name:invoice.client,
+    client_ice:invoice.ice||'',
+    client_tel:invoice.tel||'',
+    client_addr:invoice.addr||'',
+    note:invoice.note||'',
+    issue_date:invoice.date,
+    lines:invoice.lines||[],
+    total:invoice.total,
+    tva:invoice.tva!=null?invoice.tva:null,
+    mode:invoice.mode||'espece',
+    mode_ref:invoice.modeRef||'',
+  };
+  return body;
+}
+async function loadInvoicesFromSupabase(){
+  console.log('=== LOAD INVOICES FROM SUPABASE START ===');
+  try{
+    const result=await sb.from('invoices').select('*').order('seq_id',{ascending:false});
+    console.log('LOAD INVOICES RAW RESULT',result);
+    if(result.error){
+      console.error('Supabase load invoices error',result.error);
+      return false;
+    }
+    console.log('LOAD INVOICES COUNT',result.data?.length||0);
+    invoices=(result.data||[]).map(mapInvoiceFromSupabase).reverse();
+    if(invoices.length>0){
+      invoiceCounter=Math.max(...invoices.map(inv=>inv.seqId))+1;
+    }else{
+      invoiceCounter=1;
+    }
+    console.log('INVOICES LOADED',invoices.length,'invoiceCounter',invoiceCounter);
+    return true;
+  }catch(e){
+    console.error('loadInvoicesFromSupabase EXCEPTION',e);
+    return false;
+  }finally{console.log('=== LOAD INVOICES END ===');}
+}
+async function createInvoiceOnSupabase(invoice){
+  console.log('=== CREATE INVOICE START ===');
+  try{
+    const body=mapInvoiceToSupabase(invoice);
+    console.log('INVOICE PAYLOAD',JSON.stringify(body));
+    const result=await sb.from('invoices').insert(body).select();
+    console.log('INVOICE RAW RESULT',result);
+    if(result.error){
+      console.error('Supabase create invoice error',result.error);
+      return null;
+    }
+    const data=result.data?.[0]||null;
+    console.log('INVOICE INSERT DATA',data);
+    if(!data){console.error('Supabase create invoice returned no data');return null;}
+    return mapInvoiceFromSupabase(data);
+  }catch(e){
+    console.error('createInvoiceOnSupabase EXCEPTION',e);
+    return null;
+  }finally{console.log('=== CREATE INVOICE END ===');}
+}
+async function updateInvoiceOnSupabase(id,invoice){
+  console.log('=== UPDATE INVOICE START ===',id);
+  try{
+    const body=mapInvoiceToSupabase(invoice);
+    delete body.legacy_id;
+    delete body.seq_id;
+    delete body.display_id;
+    const {error}=await sb.from('invoices').update(body).eq('display_id',id);
+    if(error){console.error('Supabase update invoice error',error);return false;}
+    console.log('INVOICE UPDATE SUCCESS');
+    return true;
+  }catch(e){console.error('updateInvoiceOnSupabase failed',e);return false;}
+  finally{console.log('=== UPDATE INVOICE END ===');}
+}
+async function deleteInvoiceOnSupabase(id){
+  console.log('=== DELETE INVOICE START ===',id);
+  try{
+    const {error}=await sb.from('invoices').delete().eq('display_id',id);
+    if(error){console.error('Supabase delete invoice error',error);return false;}
+    console.log('INVOICE DELETE SUCCESS');
+    return true;
+  }catch(e){console.error('deleteInvoiceOnSupabase failed',e);return false;}
+  finally{console.log('=== DELETE INVOICE END ===');}
 }
 
 // ── NAV ──
@@ -2342,7 +2444,7 @@ function numberToWords(n){
 }
 
 
-function saveInvoice(){
+async function saveInvoice(){
   const client=document.getElementById('inv-client').value.trim()||'—';
   const ice=document.getElementById('inv-client-ice').value.trim();
   const tel=document.getElementById('inv-client-tel').value.trim();
@@ -2362,25 +2464,44 @@ function saveInvoice(){
   const tva=calcTVA(ttc);
   const numId=numCtrl||String(invoiceCounter).padStart(4,'0');
   const resolvedLines=lines.map(l=>{const p=products.find(x=>x.id===l.productId);return{productId:l.productId,productName:p?p.name:'?',unit:p?p.unit:'Pcs',qty:l.qty,price:p?p.sell:0};});
-  resolvedLines.forEach(l=>{const p=products.find(x=>x.id===l.productId);if(p){const before=p.qty;p.qty=Math.max(0,p.qty-l.qty);recordStockMovement(l.productId,l.productName,'SALE',l.qty,before,p.qty,'Facture '+(numCtrl||numId));}});
-  invoices.push({id:numId,seqId:invoiceCounter++,client,ice,tel,addr,note,date:dateVal,lines:resolvedLines,total:ttc,tva,mode,modeRef});
-  saveData();
+  // Deduct stock and persist to Supabase
+  console.log('INVOICE STOCK DEDUCTION START');
+  for(const l of resolvedLines){
+    const p=products.find(x=>x.id===l.productId);
+    if(p){const before=p.qty;p.qty=Math.max(0,p.qty-l.qty);console.log('INVOICE DEDUCT',p.name,before,'->',p.qty);recordStockMovement(l.productId,l.productName,'SALE',l.qty,before,p.qty,'Facture '+(numCtrl||numId));await updateProductOnSupabase(p.id,p);}
+  }
+  console.log('INVOICE STOCK DEDUCTION END');
+  const newInv={id:numId,seqId:invoiceCounter,client,ice,tel,addr,note,date:dateVal,lines:resolvedLines,total:ttc,tva,mode,modeRef};
+  console.log('SAVE INVOICE calling createInvoiceOnSupabase',JSON.stringify(newInv));
+  const created=await createInvoiceOnSupabase(newInv);
+  console.log('SAVE INVOICE createInvoiceOnSupabase returned',created);
+  if(created){
+    invoices.push(created);
+  } else {
+    invoices.push(newInv);
+  }
+  invoiceCounter++;
   invLines=[];
   ['client-search','inv-client','inv-client-ice','inv-client-tel','inv-client-addr','inv-num-ctrl','inv-mode-ref'].forEach(i=>{const e=document.getElementById(i);if(e)e.value='';});
   document.getElementById('inv-mode').value='espece';document.getElementById('mode-ref-wrap').style.display='none';
   renderInvLines();renderAll();
 }
-function deleteInvoice(id){
+async function deleteInvoice(id){
   if(!confirm(T('confirm_del_inv')))return;
   const inv=invoices.find(i=>i.id===id);
+  // Restore stock and persist to Supabase
+  console.log('INVOICE STOCK RESTORE START');
   if(inv&&inv.lines){
-    (inv.lines||[]).forEach(l=>{
+    for(const l of (inv.lines||[])){
       const p=products.find(x=>x.id===l.productId);
-      if(p){const before=p.qty;p.qty+=l.qty;recordStockMovement(l.productId,l.productName,'STOCK_IN',l.qty,before,p.qty,'Annulation facture '+id);}
-    });
+      if(p){const before=p.qty;p.qty+=l.qty;console.log('INVOICE RESTORE',p.name,before,'->',p.qty);recordStockMovement(l.productId,l.productName,'STOCK_IN',l.qty,before,p.qty,'Annulation facture '+id);await updateProductOnSupabase(p.id,p);}
+    }
   }
+  console.log('INVOICE STOCK RESTORE END');
+  console.log('DELETE INVOICE calling deleteInvoiceOnSupabase',id);
+  await deleteInvoiceOnSupabase(id);
   invoices=invoices.filter(i=>i.id!==id);
-  saveData();renderAll();
+  renderAll();
 }
 
 function renderInvoices(){
