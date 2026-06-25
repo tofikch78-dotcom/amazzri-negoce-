@@ -139,6 +139,10 @@ tr:hover td{background:rgba(59,130,246,.04);}
 .inv-card .inv-actions{display:flex;gap:5px;flex-wrap:wrap;}
 /* TYPE BADGES */
 .type-badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:.72rem;font-weight:600;}
+.status-paid{background:var(--badge-ok);color:var(--badge-ok-text);}
+.status-pending{background:rgba(59,130,246,.12);color:var(--primary);}
+.status-partial{background:var(--badge-low);color:var(--badge-low-text);}
+.status-overdue{background:rgba(239,68,68,.15);color:#b91c1c;}
 .type-stock_in{background:#d4edda;color:#155724;}
 .type-stock_out{background:#f8d7da;color:#721c24;}
 .type-sale{background:#fff3cd;color:#856404;}
@@ -480,15 +484,20 @@ input:checked+.slider:before{transform:translateX(20px);}
             <!-- Settlement mode -->
             <div class="fg" style="margin-top:10px">
               <label id="lb-mode">Mode de règlement</label>
-              <select id="inv-mode" style="width:100%" onchange="toggleModeRef()">
+              <select id="inv-mode" style="width:100%" onchange="toggleModeRef();toggleCreditFields()">
                 <option value="espece">Espèce</option>
                 <option value="cheque">Chèque</option>
                 <option value="virement">Virement</option>
+                <option value="credit">Crédit</option>
               </select>
             </div>
             <div id="mode-ref-wrap" class="fg" style="display:none;margin-top:6px;">
               <label id="lb-mode-ref">N° Chèque / Référence</label>
               <input id="inv-mode-ref" style="width:100%" placeholder="Numéro ou référence...">
+            </div>
+            <div id="credit-fields-wrap" class="fg" style="display:none;margin-top:6px;">
+              <label id="lb-inv-due-date">Date d'échéance</label>
+              <input type="date" id="inv-due-date" style="width:100%">
             </div>
             <button class="btn btn-primary" style="margin-top:10px;width:100%" onclick="saveInvoice()" id="btn-save-inv">Enregistrer</button>
           </div>
@@ -970,9 +979,10 @@ const i18n = {
     modal_add:'Ajouter un produit',modal_edit:'Modifier le produit',ml_name:'Nom',ml_cat:'Catégorie',ml_unit:'Unité',ml_emoji:'Emoji',ml_achat:'Prix achat (MAD)',ml_vente:'Prix vente TTC (MAD)',ml_qte:'Quantité',ml_seuil:"⚠️ Seuil d'alerte",ml_seuil_hint:'Alerte déclenchée quand le stock passe sous ce seuil',ml_cancel:'Annuler',ml_save:'Enregistrer',
     inv_col_qty:'Qté',inv_col_unit:'Unité',inv_col_total:'Total TTC',
     confirm_del_inv:'Supprimer cette facture ?',confirm_del_prod:'Supprimer ce produit ?',
+    inv_status_paid:'Payée',inv_status_pending:'En attente',inv_status_partial:'Partielle',inv_status_overdue:'Impayée',inv_paid_on:'Payée le',inv_remaining:'Reste',lb_inv_due_date:"Date d'échéance",
     inv_arrete:'Arrêtée la présente facture à la somme de :',
     inv_facture_lbl:'Facture',inv_piece:'N° de pièce :',inv_client_lbl:'Client :',inv_ice_lbl:'ICE :',inv_marrakech:'Marrakech le :',
-    mode_espece:'Espèce',mode_cheque:'Chèque N° :',mode_virement:'Virement',
+    mode_espece:'Espèce',mode_cheque:'Chèque N° :',mode_virement:'Virement',mode_credit:'Crédit',
     mn_clients:'Clients',tt_clients:'Gestion des clients',tt_clients_sub:'Ajouter, modifier, consulter',
     th_cl_nom:'Nom',th_cl_ice:'ICE',th_cl_tel:'Téléphone',th_cl_ville:'Ville',th_cl_email:'Email',th_cl_date:'Créé le',th_cl_act:'Actions',
     cl_btn_add:'+ Ajouter',cl_btn_edit:'Modifier',cl_btn_del:'Supprimer',cl_btn_view:'Détails',
@@ -1059,9 +1069,10 @@ const i18n = {
     modal_add:'Add product',modal_edit:'Edit product',ml_name:'Name',ml_cat:'Category',ml_unit:'Unit',ml_emoji:'Emoji',ml_achat:'Purchase price (MAD)',ml_vente:'Sale price TTC (MAD)',ml_qte:'Quantity',ml_seuil:'⚠️ Alert threshold',ml_seuil_hint:'Alert triggered when stock falls below this level',ml_cancel:'Cancel',ml_save:'Save',
     inv_col_qty:'Qty',inv_col_unit:'Unit',inv_col_total:'Total TTC',
     confirm_del_inv:'Delete this invoice?',confirm_del_prod:'Delete this product?',
+    inv_status_paid:'Paid',inv_status_pending:'Pending',inv_status_partial:'Partial',inv_status_overdue:'Overdue',inv_paid_on:'Paid on',inv_remaining:'Remaining',lb_inv_due_date:'Due date',
     inv_arrete:'Invoice total in words:',
     inv_facture_lbl:'Invoice',inv_piece:'Piece No.:',inv_client_lbl:'Customer:',inv_ice_lbl:'ICE:',inv_marrakech:'Date:',
-    mode_espece:'Cash',mode_cheque:'Cheque No.:',mode_virement:'Wire transfer',
+    mode_espece:'Cash',mode_cheque:'Cheque No.:',mode_virement:'Wire transfer',mode_credit:'Credit',
     mn_clients:'Clients',tt_clients:'Client Management',tt_clients_sub:'Add, edit, view',
     th_cl_nom:'Name',th_cl_ice:'ICE',th_cl_tel:'Phone',th_cl_ville:'City',th_cl_email:'Email',th_cl_date:'Created',th_cl_act:'Actions',
     cl_btn_add:'+ Add',cl_btn_edit:'Edit',cl_btn_del:'Delete',cl_btn_view:'Details',
@@ -1148,9 +1159,10 @@ const i18n = {
     modal_add:'إضافة منتج',modal_edit:'تعديل المنتج',ml_name:'الاسم',ml_cat:'الفئة',ml_unit:'الوحدة',ml_emoji:'رمز',ml_achat:'سعر الشراء (درهم)',ml_vente:'سعر البيع (درهم)',ml_qte:'الكمية',ml_seuil:'⚠️ حد التنبيه',ml_seuil_hint:'يُطلق عند انخفاض المخزون عن هذا الحد',ml_cancel:'إلغاء',ml_save:'حفظ',
     inv_col_qty:'الكمية',inv_col_unit:'الوحدة',inv_col_total:'الإجمالي',
     confirm_del_inv:'حذف هذه الفاتورة؟',confirm_del_prod:'حذف هذا المنتج؟',
+    inv_status_paid:'مدفوعة',inv_status_pending:'قيد الانتظار',inv_status_partial:'جزئية',inv_status_overdue:'متأخرة',inv_paid_on:'دفعت في',inv_remaining:'المتبقي',lb_inv_due_date:'تاريخ الاستحقاق',
     inv_arrete:'تحرير هذه الفاتورة بمبلغ:',
     inv_facture_lbl:'فاتورة',inv_piece:'رقم القطعة:',inv_client_lbl:'العميل:',inv_ice_lbl:'ICE:',inv_marrakech:'التاريخ:',
-    mode_espece:'نقداً',mode_cheque:'شيك رقم:',mode_virement:'تحويل',
+    mode_espece:'نقداً',mode_cheque:'شيك رقم:',mode_virement:'تحويل',mode_credit:'ائتمان',
     mn_clients:'العملاء',tt_clients:'إدارة العملاء',tt_clients_sub:'إضافة، تعديل، عرض',
     th_cl_nom:'الاسم',th_cl_ice:'ICE',th_cl_tel:'الهاتف',th_cl_ville:'المدينة',th_cl_email:'البريد',th_cl_date:'تاريخ الإنشاء',th_cl_act:'إجراءات',
     cl_btn_add:'+ إضافة',cl_btn_edit:'تعديل',cl_btn_del:'حذف',cl_btn_view:'تفاصيل',
@@ -1231,7 +1243,7 @@ function applyLang(){
   s('lb-add-product','lb_add_product');p('prod-search','prod_search_ph');
   s('btn-save-inv','btn_save_inv');s('tt-inv-hist','tt_inv_hist');
   s('lb-ttc-sub','lb_ttc');s('lb-tva','lb_tva');s('lb-net','lb_net');
-  s('lb-mode','lb_mode');s('lb-mode-ref','lb_mode_ref');
+  s('lb-mode','lb_mode');s('lb-mode-ref','lb_mode_ref');s('lb-inv-due-date','lb_inv_due_date');
   s('preview-title','preview_title');s('btn-pdf','btn_pdf');s('btn-excel','btn_excel_lbl');s('btn-close-preview','btn_close');
   s('tt-stats','tt_stats');s('st-btn1','st_best');s('st-btn2','st_ben');s('st-btn3','st_slow');
   s('tt-settings','tt_settings');s('tt-set-sub','tt_set_sub');s('set-appearance','set_appearance');s('set-dm-title','set_dm_title');s('set-dm-desc','set_dm_desc');
@@ -2753,6 +2765,10 @@ function toggleModeRef(){
   const v=document.getElementById('inv-mode').value;
   document.getElementById('mode-ref-wrap').style.display=(v==='cheque'||v==='virement')?'block':'none';
 }
+function toggleCreditFields(){
+  const v=document.getElementById('inv-mode').value;
+  document.getElementById('credit-fields-wrap').style.display=v==='credit'?'block':'none';
+}
 
 function numberToWords(n){
   const numFr={ones:['','Un','Deux','Trois','Quatre','Cinq','Six','Sept','Huit','Neuf','Dix','Onze','Douze','Treize','Quatorze','Quinze','Seize','Dix-Sept','Dix-Huit','Dix-Neuf'],tens:['','','Vingt','Trente','Quarante','Cinquante','Soixante','Soixante-Dix','Quatre-Vingt','Quatre-Vingt-Dix'],zero:'Zéro',currency:'Dirhams',cents:'Cts',and:' et ',thousand:'Mille',hundred:'Cent'};
@@ -2805,12 +2821,17 @@ async function saveInvoice(){
   const tva=calcTVA(ttc);
   const numId=numCtrl||String(invoiceCounter).padStart(4,'0');
   const resolvedLines=lines.map(l=>{const p=products.find(x=>x.id===l.productId);return{productId:l.productId,productName:p?p.name:'?',unit:p?p.unit:'Pcs',qty:l.qty,price:p?p.sell:0};});
+  // Derive credit fields from mode
+  const dueDateVal=mode==='credit'?document.getElementById('inv-due-date').value||null:dateVal;
+  const invStatus=mode==='credit'?'pending':'paid';
+  const invTotalPaid=mode==='credit'?0:ttc;
+  const invPaidAt=mode==='credit'?null:new Date().toISOString();
   // Deduct stock and persist to Supabase
   for(const l of resolvedLines){
     const p=products.find(x=>x.id===l.productId);
     if(p){const before=p.qty;p.qty=Math.max(0,p.qty-l.qty);await recordStockMovement(l.productId,l.productName,'SALE',l.qty,before,p.qty,'Facture '+(numCtrl||numId));await updateProductOnSupabase(p.id,p);}
   }
-  const newInv={id:numId,seqId:invoiceCounter,client,ice,tel,addr,note,date:dateVal,lines:resolvedLines,total:ttc,tva,mode,modeRef};
+  const newInv={id:numId,seqId:invoiceCounter,client,ice,tel,addr,note,date:dateVal,lines:resolvedLines,total:ttc,tva,mode,modeRef,dueDate:dueDateVal,status:invStatus,totalPaid:invTotalPaid,paidAt:invPaidAt};
   const created=await createInvoiceOnSupabase(newInv);
   if(created){
     invoices.push(created);
@@ -2821,7 +2842,7 @@ async function saveInvoice(){
   invoiceCounter++;
   invLines=[];
   ['client-search','inv-client','inv-client-ice','inv-client-tel','inv-client-addr','inv-num-ctrl','inv-mode-ref'].forEach(i=>{const e=document.getElementById(i);if(e)e.value='';});
-  document.getElementById('inv-mode').value='espece';document.getElementById('mode-ref-wrap').style.display='none';
+  document.getElementById('inv-mode').value='espece';document.getElementById('mode-ref-wrap').style.display='none';document.getElementById('credit-fields-wrap').style.display='none';
   renderInvLines();renderAll();
 }
 async function deleteInvoice(id){
@@ -2839,15 +2860,32 @@ async function deleteInvoice(id){
   renderAll();
 }
 
+function getInvStatusDisplay(inv){
+  const today=new Date();today.setHours(0,0,0,0);
+  const due=inv.dueDate?new Date(inv.dueDate+'T00:00:00'):null;
+  const st=inv.status==='pending'&&due&&due<today?'overdue':inv.status||'pending';
+  const map={paid:{cls:'paid',icon:'✅',key:'inv_status_paid'},pending:{cls:'pending',icon:'⏳',key:'inv_status_pending'},partial:{cls:'partial',icon:'⚠️',key:'inv_status_partial'},overdue:{cls:'overdue',icon:'🔴',key:'inv_status_overdue'}};
+  const s=map[st]||map.pending;
+  return `<span class="type-badge status-${s.cls}">${s.icon} ${T(s.key)}</span>`;
+}
+function getInvPaymentInfo(inv){
+  if(inv.status==='paid'&&inv.paidAt){
+    const d=typeof inv.paidAt==='string'?inv.paidAt.slice(0,10):'';
+    return `<div style="font-size:.71rem;color:var(--text-muted);margin-top:2px">${T('inv_paid_on')} ${d}</div>`;
+  }
+  const remaining=(inv.total||0)-(inv.totalPaid||0);
+  if(remaining>0)return `<div style="font-size:.71rem;color:var(--red);margin-top:2px">${T('inv_remaining')}: ${remaining.toFixed(2)} MAD</div>`;
+  return '';
+}
 function renderInvoices(){
   const el=document.getElementById('invoices-list');
   if(!invoices.length){el.innerHTML=`<p style="color:var(--text-muted);padding:8px 0">${T('no_inv')}</p>`;return;}
   el.innerHTML=[...invoices].reverse().map(inv=>`
     <div class="inv-card">
       <div class="inv-hdr">
-        <div><div class="inv-client">🧾 ${inv.client}</div><div class="inv-meta">N° ${inv.id} · ${inv.date}</div></div>
+        <div><div class="inv-client">🧾 ${inv.client} ${getInvStatusDisplay(inv)}</div><div class="inv-meta">N° ${inv.id} · ${inv.date}</div></div>
       </div>
-      <div class="inv-lp">${(inv.lines||[]).map(l=>`${l.qty}× ${l.productName}`).join(' · ')}</div>
+      <div class="inv-lp">${(inv.lines||[]).map(l=>`${l.qty}× ${l.productName}`).join(' · ')}${getInvPaymentInfo(inv)}</div>
       <div class="inv-total-row">
         <div class="inv-total-amt">TTC: ${inv.total.toFixed(2)} MAD</div>
         <div class="inv-actions">
@@ -2865,7 +2903,7 @@ function previewInvoice(id){
   const inv=invoices.find(i=>i.id===id);if(!inv)return;
   const tva=inv.tva!=null?inv.tva:calcTVA(inv.total);
   const words=numberToWords(inv.total);
-  const modeLabel=inv.mode==='cheque'?T('mode_cheque'):inv.mode==='virement'?T('mode_virement'):T('mode_espece');
+  const modeLabel=inv.mode==='cheque'?T('mode_cheque'):inv.mode==='virement'?T('mode_virement'):inv.mode==='credit'?T('mode_credit'):T('mode_espece');
   const modeDisplay=inv.modeRef?(modeLabel+' '+inv.modeRef):modeLabel;
   const rowsHtml=(inv.lines||[]).map((l,i)=>`
     <tr>
@@ -3116,7 +3154,7 @@ function renderIAReport(){
   // Payment mode breakdown
   const modes={};monthInvs.forEach(i=>{const m=i.mode||'espece';modes[m]=(modes[m]||0)+1;});
   const topMode=Object.entries(modes).sort((a,b)=>b[1]-a[1])[0];
-  const modeLabels={espece:T('mode_espece'),cheque:T('mode_cheque'),virement:T('mode_virement')};
+  const modeLabels={espece:T('mode_espece'),cheque:T('mode_cheque'),virement:T('mode_virement'),credit:T('mode_credit')};
   // Top clients
   const clientInv={};monthInvs.forEach(i=>{const c=i.client||'—';clientInv[c]=(clientInv[c]||0)+1;});
   const topClient=Object.entries(clientInv).sort((a,b)=>b[1]-a[1])[0];
