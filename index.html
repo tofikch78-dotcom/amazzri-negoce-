@@ -2110,11 +2110,11 @@ async function saveReceipt(){
     const p=products.find(x=>x.id===l.productId);
     return{productId:l.productId,productName:p?p.name:'?',qty:l.qty};
   });
-  // Increase stock
-  resolvedLines.forEach(l=>{
+  // Increase stock and persist to Supabase
+  for(const l of resolvedLines){
     const p=products.find(x=>x.id===l.productId);
-    if(p){const before=p.qty;p.qty+=l.qty;recordStockMovement(l.productId,l.productName,'STOCK_IN',l.qty,before,p.qty,'Réception '+(numCtrl||numId));}
-  });
+    if(p){const before=p.qty;p.qty+=l.qty;recordStockMovement(l.productId,l.productName,'STOCK_IN',l.qty,before,p.qty,'Réception '+(numCtrl||numId));await updateProductOnSupabase(p.id,p);}
+  }
   const newRec={id:numId,seqId:receiptCounter,date:dateVal,supplier:supplierName,supplierId,lines:resolvedLines,totalItems,notes};
   console.log('SAVE RECEIPT calling createReceptionOnSupabase',JSON.stringify(newRec));
   const created=await createReceptionOnSupabase(newRec);
@@ -2135,10 +2135,10 @@ async function deleteReceipt(id){
   if(!confirm(T('rec_del_confirm')))return;
   const rec=receipts.find(r=>r.id===id);
   if(rec&&rec.lines){
-    (rec.lines||[]).forEach(l=>{
+    for(const l of (rec.lines||[])){
       const p=products.find(x=>x.id===l.productId);
-      if(p){const before=p.qty;p.qty=Math.max(0,p.qty-l.qty);recordStockMovement(l.productId,l.productName,'STOCK_OUT',l.qty,before,p.qty,'Annulation reception '+id);}
-    });
+      if(p){const before=p.qty;p.qty=Math.max(0,p.qty-l.qty);recordStockMovement(l.productId,l.productName,'STOCK_OUT',l.qty,before,p.qty,'Annulation reception '+id);await updateProductOnSupabase(p.id,p);}
+    }
   }
   console.log('DELETE RECEIPT calling deleteReceptionOnSupabase',id);
   await deleteReceptionOnSupabase(id);
