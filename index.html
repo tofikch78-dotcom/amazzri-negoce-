@@ -1220,8 +1220,6 @@ function saveData(){
     localStorage.setItem(LS_KEY_INVOICES,  JSON.stringify(invoices));
     localStorage.setItem(LS_KEY_COUNTER,   String(invoiceCounter));
     localStorage.setItem(LS_KEY_HISTORY,   JSON.stringify(stockHistory));
-    localStorage.setItem(LS_KEY_RECEIPTS,  JSON.stringify(receipts));
-    localStorage.setItem(LS_KEY_REC_COUNT, String(receiptCounter));
   }catch(e){console.warn('Save error',e);}
 }
 
@@ -1229,13 +1227,9 @@ function loadData(){
   const i = localStorage.getItem(LS_KEY_INVOICES);
   const c = localStorage.getItem(LS_KEY_COUNTER);
   const sh = localStorage.getItem(LS_KEY_HISTORY);
-  const rr = localStorage.getItem(LS_KEY_RECEIPTS);
-  const rc = localStorage.getItem(LS_KEY_REC_COUNT);
   try{if(i) invoices=JSON.parse(i);}catch(e){console.warn('Failed to load invoices',e);}
   if(c) invoiceCounter=parseInt(c,10)||1;
   try{if(sh) stockHistory=JSON.parse(sh);}catch(e){console.warn('Failed to load stock history',e);}
-  try{if(rr) receipts=JSON.parse(rr);}catch(e){console.warn('Failed to load receipts',e);}
-  if(rc) receiptCounter=parseInt(rc,10)||1;
 }
 
 function initData(){
@@ -1261,6 +1255,7 @@ async function doLogin(){
   await loadProductsFromSupabase();
   await loadClientsFromSupabase();
   await loadSuppliersFromSupabase();
+  await loadReceptionsFromSupabase();
   document.getElementById('login-screen').style.display='none';
   document.getElementById('app').style.display='flex';
   document.getElementById('set-user-val').textContent=currentUser;
@@ -1280,6 +1275,7 @@ async function restoreSession(){
     await loadProductsFromSupabase();
     await loadClientsFromSupabase();
     await loadSuppliersFromSupabase();
+    await loadReceptionsFromSupabase();
     document.getElementById('login-screen').style.display='none';
     document.getElementById('app').style.display='flex';
     document.getElementById('set-user-val').textContent=currentUser;
@@ -1535,6 +1531,108 @@ async function deleteSupplierOnSupabase(id){
     if(error){console.error('Supabase delete supplier error',error);return false;}
     return true;
   }catch(e){console.error('deleteSupplierOnSupabase failed',e);return false;}
+}
+
+// ── RECEPTIONS REPOSITORY (Supabase) ──
+function mapReceptionFromSupabase(row){
+  return{
+    id:row.display_id,
+    seqId:row.seq_id,
+    supabaseId:row.id,
+    supplier:row.supplier_name,
+    supplierId:row.legacy_supplier_id||'',
+    date:row.receipt_date,
+    lines:row.lines||[],
+    totalItems:Number(row.total_items),
+    notes:row.notes||'',
+  };
+}
+function mapReceptionToSupabase(reception){
+  const body={
+    seq_id:reception.seqId,
+    display_id:reception.id,
+    legacy_id:reception.seqId,
+    supplier_name:reception.supplier,
+    receipt_date:reception.date,
+    lines:reception.lines||[],
+    total_items:reception.totalItems,
+    notes:reception.notes||'',
+  };
+  if(reception.supplierId){
+    const sup=suppliers.find(s=>s.id==reception.supplierId);
+    if(sup&&sup.supabaseId){
+      body.supplier_id=sup.supabaseId;
+      body.legacy_supplier_id=Number(reception.supplierId);
+    }
+  }
+  return body;
+}
+async function loadReceptionsFromSupabase(){
+  console.log('=== LOAD RECEPTIONS FROM SUPABASE START ===');
+  try{
+    const result=await sb.from('receipts').select('*').order('seq_id',{ascending:false});
+    console.log('LOAD RECEPTIONS RAW RESULT',result);
+    if(result.error){
+      console.error('Supabase load receptions error',result.error);
+      return false;
+    }
+    console.log('LOAD RECEPTIONS COUNT',result.data?.length||0);
+    receipts=(result.data||[]).map(mapReceptionFromSupabase).reverse();
+    if(receipts.length>0){
+      receiptCounter=Math.max(...receipts.map(r=>r.seqId))+1;
+    }else{
+      receiptCounter=1;
+    }
+    console.log('RECEPTIONS LOADED',receipts.length,'receiptCounter',receiptCounter);
+    return true;
+  }catch(e){
+    console.error('loadReceptionsFromSupabase EXCEPTION',e);
+    return false;
+  }finally{console.log('=== LOAD RECEPTIONS END ===');}
+}
+async function createReceptionOnSupabase(reception){
+  console.log('=== CREATE RECEPTION START ===');
+  try{
+    const body=mapReceptionToSupabase(reception);
+    console.log('RECEPTION PAYLOAD',JSON.stringify(body));
+    const result=await sb.from('receipts').insert(body).select();
+    console.log('RECEPTION RAW RESULT',result);
+    if(result.error){
+      console.error('Supabase create reception error',result.error);
+      return null;
+    }
+    const data=result.data?.[0]||null;
+    console.log('RECEPTION INSERT DATA',data);
+    if(!data){console.error('Supabase create reception returned no data');return null;}
+    return mapReceptionFromSupabase(data);
+  }catch(e){
+    console.error('createReceptionOnSupabase EXCEPTION',e);
+    return null;
+  }finally{console.log('=== CREATE RECEPTION END ===');}
+}
+async function updateReceptionOnSupabase(id,reception){
+  console.log('=== UPDATE RECEPTION START ===',id);
+  try{
+    const body=mapReceptionToSupabase(reception);
+    delete body.legacy_id;
+    delete body.seq_id;
+    delete body.display_id;
+    const {error}=await sb.from('receipts').update(body).eq('display_id',id);
+    if(error){console.error('Supabase update reception error',error);return false;}
+    console.log('RECEPTION UPDATE SUCCESS');
+    return true;
+  }catch(e){console.error('updateReceptionOnSupabase failed',e);return false;}
+  finally{console.log('=== UPDATE RECEPTION END ===');}
+}
+async function deleteReceptionOnSupabase(id){
+  console.log('=== DELETE RECEPTION START ===',id);
+  try{
+    const {error}=await sb.from('receipts').delete().eq('display_id',id);
+    if(error){console.error('Supabase delete reception error',error);return false;}
+    console.log('RECEPTION DELETE SUCCESS');
+    return true;
+  }catch(e){console.error('deleteReceptionOnSupabase failed',e);return false;}
+  finally{console.log('=== DELETE RECEPTION END ===');}
 }
 
 // ── NAV ──
@@ -1998,7 +2096,7 @@ document.addEventListener('click',function(e){
   const dd=document.getElementById('rec-prod-dropdown');
   if(dd&&!e.target.closest('.prod-search-wrap')&&!e.target.closest('#rec-prod-dropdown'))dd.classList.remove('open');
 });
-function saveReceipt(){
+async function saveReceipt(){
   const supplierId=document.getElementById('rec-supplier').value;
   const supplierName=supplierId?suppliers.find(s=>s.id==supplierId)?.nom||'':'—';
   const dateVal=document.getElementById('rec-date').value||new Date().toISOString().slice(0,10);
@@ -2017,15 +2115,23 @@ function saveReceipt(){
     const p=products.find(x=>x.id===l.productId);
     if(p){const before=p.qty;p.qty+=l.qty;recordStockMovement(l.productId,l.productName,'STOCK_IN',l.qty,before,p.qty,'Réception '+(numCtrl||numId));}
   });
-  receipts.push({id:numId,seqId:receiptCounter++,supplier:supplierName,supplierId,date:dateVal,lines:resolvedLines,totalItems,notes});
-  saveData();
+  const newRec={id:numId,seqId:receiptCounter,date:dateVal,supplier:supplierName,supplierId,lines:resolvedLines,totalItems,notes};
+  console.log('SAVE RECEIPT calling createReceptionOnSupabase',JSON.stringify(newRec));
+  const created=await createReceptionOnSupabase(newRec);
+  console.log('SAVE RECEIPT createReceptionOnSupabase returned',created);
+  if(created){
+    receipts.push(created);
+  } else {
+    receipts.push({...newRec,createdAt:new Date().toISOString()});
+  }
+  receiptCounter++;
   recLines=[];
   document.getElementById('rec-prod-search').value='';
   ['rec-num','rec-notes'].forEach(i=>{const e=document.getElementById(i);if(e)e.value='';});
   document.getElementById('rec-supplier').value='';
   renderRecLines();renderAll();
 }
-function deleteReceipt(id){
+async function deleteReceipt(id){
   if(!confirm(T('rec_del_confirm')))return;
   const rec=receipts.find(r=>r.id===id);
   if(rec&&rec.lines){
@@ -2034,8 +2140,10 @@ function deleteReceipt(id){
       if(p){const before=p.qty;p.qty=Math.max(0,p.qty-l.qty);recordStockMovement(l.productId,l.productName,'STOCK_OUT',l.qty,before,p.qty,'Annulation reception '+id);}
     });
   }
+  console.log('DELETE RECEIPT calling deleteReceptionOnSupabase',id);
+  await deleteReceptionOnSupabase(id);
   receipts=receipts.filter(r=>r.id!==id);
-  saveData();renderAll();
+  renderAll();
 }
 function viewReceipt(id){
   const r=receipts.find(x=>x.id===id);if(!r)return;
