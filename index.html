@@ -1219,7 +1219,6 @@ function saveData(){
   try{
     localStorage.setItem(LS_KEY_INVOICES,  JSON.stringify(invoices));
     localStorage.setItem(LS_KEY_COUNTER,   String(invoiceCounter));
-    localStorage.setItem(LS_KEY_CLIENTS,   JSON.stringify(clients));
     localStorage.setItem(LS_KEY_SUPPLIERS, JSON.stringify(suppliers));
     localStorage.setItem(LS_KEY_HISTORY,   JSON.stringify(stockHistory));
     localStorage.setItem(LS_KEY_RECEIPTS,  JSON.stringify(receipts));
@@ -1230,14 +1229,12 @@ function saveData(){
 function loadData(){
   const i = localStorage.getItem(LS_KEY_INVOICES);
   const c = localStorage.getItem(LS_KEY_COUNTER);
-  const cl = localStorage.getItem(LS_KEY_CLIENTS);
   const su = localStorage.getItem(LS_KEY_SUPPLIERS);
   const sh = localStorage.getItem(LS_KEY_HISTORY);
   const rr = localStorage.getItem(LS_KEY_RECEIPTS);
   const rc = localStorage.getItem(LS_KEY_REC_COUNT);
   try{if(i) invoices=JSON.parse(i);}catch(e){console.warn('Failed to load invoices',e);}
   if(c) invoiceCounter=parseInt(c,10)||1;
-  try{if(cl) clients=JSON.parse(cl);}catch(e){console.warn('Failed to load clients',e);}
   try{if(su) suppliers=JSON.parse(su);}catch(e){console.warn('Failed to load suppliers',e);}
   try{if(sh) stockHistory=JSON.parse(sh);}catch(e){console.warn('Failed to load stock history',e);}
   try{if(rr) receipts=JSON.parse(rr);}catch(e){console.warn('Failed to load receipts',e);}
@@ -1265,6 +1262,7 @@ async function doLogin(){
   const {data:profile}=await sb.from('profiles').select('username,display_name').eq('id',data.user.id).single();
   currentUser=profile?.username||u;
   await loadProductsFromSupabase();
+  await loadClientsFromSupabase();
   document.getElementById('login-screen').style.display='none';
   document.getElementById('app').style.display='flex';
   document.getElementById('set-user-val').textContent=currentUser;
@@ -1282,6 +1280,7 @@ async function restoreSession(){
     const {data:profile}=await sb.from('profiles').select('username,display_name').eq('id',session.user.id).single();
     currentUser=profile?.username||'admin';
     await loadProductsFromSupabase();
+    await loadClientsFromSupabase();
     document.getElementById('login-screen').style.display='none';
     document.getElementById('app').style.display='flex';
     document.getElementById('set-user-val').textContent=currentUser;
@@ -1387,6 +1386,83 @@ async function deleteProductOnSupabase(id){
     if(error){console.error('Supabase delete product error',error);return false;}
     return true;
   }catch(e){console.error('deleteProductOnSupabase failed',e);return false;}
+}
+
+// ── CLIENTS REPOSITORY (Supabase) ──
+function mapClientFromSupabase(row){
+  return{
+    id:row.legacy_id||row.id,
+    supabaseId:row.id,
+    nom:row.nom,
+    ice:row.ice||'',
+    if_:row.if_code||'',
+    rc:row.rc||'',
+    telephone:row.telephone||'',
+    email:row.email||'',
+    adresse:row.adresse||'',
+    ville:row.ville||'',
+    createdAt:row.created_at,
+  };
+}
+function mapClientToSupabase(client){
+  const body={
+    nom:client.nom,
+    ice:client.ice||'',
+    if_code:client.if_||'',
+    rc:client.rc||'',
+    telephone:client.telephone||'',
+    email:client.email||'',
+    adresse:client.adresse||'',
+    ville:client.ville||'',
+    legacy_id:client.id||Date.now(),
+  };
+  return body;
+}
+async function loadClientsFromSupabase(){
+  try{
+    const result=await sb.from('clients').select('*');
+    if(result.error){
+      console.error('Supabase load clients error',result.error);
+      return false;
+    }
+    clients=(result.data||[]).map(mapClientFromSupabase);
+    return true;
+  }catch(e){
+    console.error('loadClientsFromSupabase EXCEPTION',e);
+    return false;
+  }
+}
+async function createClientOnSupabase(client){
+  try{
+    const body=mapClientToSupabase(client);
+    const result=await sb.from('clients').insert(body).select();
+    if(result.error){
+      console.error('Supabase create client error',result.error);
+      return null;
+    }
+    const data=result.data?.[0]||null;
+    if(!data){console.error('Supabase create client returned no data');return null;}
+    return mapClientFromSupabase(data);
+  }catch(e){
+    console.error('createClientOnSupabase EXCEPTION',e);
+    return null;
+  }
+}
+async function updateClientOnSupabase(id,client){
+  try{
+    const body=mapClientToSupabase(client);
+    delete body.legacy_id;
+    const {error}=await sb.from('clients').update(body).eq('legacy_id',id);
+    if(error){console.error('Supabase update client error',error);return false;}
+    return true;
+  }catch(e){console.error('updateClientOnSupabase failed',e);return false;}
+}
+async function deleteClientOnSupabase(id){
+  try{
+    const {error}=await sb.from('clients').delete().eq('legacy_id',id);
+    if(error){console.error('Supabase delete client error',error);return false;}
+    return true;
+  }catch(e){console.error('deleteClientOnSupabase failed',e);return false;}
 }
 
 // ── NAV ──
@@ -1680,7 +1756,7 @@ function openClientModal(id){
   document.getElementById('client-modal').classList.add('open');
 }
 
-function saveClient(){
+async function saveClient(){
   const nom=document.getElementById('c-name').value.trim();
   if(!nom)return;
   const ice=document.getElementById('c-ice').value.trim();
@@ -1691,19 +1767,27 @@ function saveClient(){
   const adresse=document.getElementById('c-adresse').value.trim();
   const ville=document.getElementById('c-ville').value.trim();
   if(editClientId){
-    Object.assign(clients.find(x=>x.id===editClientId),{nom,ice,if_,rc,telephone,email,adresse,ville});
+    const old=clients.find(x=>x.id===editClientId);
+    if(!old)return;
+    Object.assign(old,{nom,ice,if_,rc,telephone,email,adresse,ville});
+    await updateClientOnSupabase(editClientId,old);
   } else {
-    clients.push({id:Date.now(),nom,ice,if_,rc,telephone,email,adresse,ville,createdAt:new Date().toISOString()});
+    const tempId=Date.now();
+    const created=await createClientOnSupabase({id:tempId,nom,ice,if_,rc,telephone,email,adresse,ville});
+    if(created){
+      clients.push(created);
+    } else {
+      clients.push({id:tempId,nom,ice,if_,rc,telephone,email,adresse,ville,createdAt:new Date().toISOString()});
+    }
   }
-  saveData();
   closeModal('client-modal');
   renderAll();
 }
 
-function deleteClient(id){
+async function deleteClient(id){
   if(!confirm(T('cl_confirm_del')))return;
+  await deleteClientOnSupabase(id);
   clients=clients.filter(c=>c.id!==id);
-  saveData();
   renderAll();
 }
 
