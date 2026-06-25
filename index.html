@@ -1219,7 +1219,6 @@ function saveData(){
   try{
     localStorage.setItem(LS_KEY_INVOICES,  JSON.stringify(invoices));
     localStorage.setItem(LS_KEY_COUNTER,   String(invoiceCounter));
-    localStorage.setItem(LS_KEY_SUPPLIERS, JSON.stringify(suppliers));
     localStorage.setItem(LS_KEY_HISTORY,   JSON.stringify(stockHistory));
     localStorage.setItem(LS_KEY_RECEIPTS,  JSON.stringify(receipts));
     localStorage.setItem(LS_KEY_REC_COUNT, String(receiptCounter));
@@ -1229,13 +1228,11 @@ function saveData(){
 function loadData(){
   const i = localStorage.getItem(LS_KEY_INVOICES);
   const c = localStorage.getItem(LS_KEY_COUNTER);
-  const su = localStorage.getItem(LS_KEY_SUPPLIERS);
   const sh = localStorage.getItem(LS_KEY_HISTORY);
   const rr = localStorage.getItem(LS_KEY_RECEIPTS);
   const rc = localStorage.getItem(LS_KEY_REC_COUNT);
   try{if(i) invoices=JSON.parse(i);}catch(e){console.warn('Failed to load invoices',e);}
   if(c) invoiceCounter=parseInt(c,10)||1;
-  try{if(su) suppliers=JSON.parse(su);}catch(e){console.warn('Failed to load suppliers',e);}
   try{if(sh) stockHistory=JSON.parse(sh);}catch(e){console.warn('Failed to load stock history',e);}
   try{if(rr) receipts=JSON.parse(rr);}catch(e){console.warn('Failed to load receipts',e);}
   if(rc) receiptCounter=parseInt(rc,10)||1;
@@ -1263,6 +1260,7 @@ async function doLogin(){
   currentUser=profile?.username||u;
   await loadProductsFromSupabase();
   await loadClientsFromSupabase();
+  await loadSuppliersFromSupabase();
   document.getElementById('login-screen').style.display='none';
   document.getElementById('app').style.display='flex';
   document.getElementById('set-user-val').textContent=currentUser;
@@ -1281,6 +1279,7 @@ async function restoreSession(){
     currentUser=profile?.username||'admin';
     await loadProductsFromSupabase();
     await loadClientsFromSupabase();
+    await loadSuppliersFromSupabase();
     document.getElementById('login-screen').style.display='none';
     document.getElementById('app').style.display='flex';
     document.getElementById('set-user-val').textContent=currentUser;
@@ -1463,6 +1462,79 @@ async function deleteClientOnSupabase(id){
     if(error){console.error('Supabase delete client error',error);return false;}
     return true;
   }catch(e){console.error('deleteClientOnSupabase failed',e);return false;}
+}
+
+// ── SUPPLIERS REPOSITORY (Supabase) ──
+function mapSupplierFromSupabase(row){
+  return{
+    id:row.legacy_id||row.id,
+    supabaseId:row.id,
+    nom:row.nom,
+    ice:row.ice||'',
+    telephone:row.telephone||'',
+    email:row.email||'',
+    adresse:row.adresse||'',
+    ville:row.ville||'',
+    createdAt:row.created_at,
+  };
+}
+function mapSupplierToSupabase(supplier){
+  const body={
+    nom:supplier.nom,
+    ice:supplier.ice||'',
+    telephone:supplier.telephone||'',
+    email:supplier.email||'',
+    adresse:supplier.adresse||'',
+    ville:supplier.ville||'',
+    legacy_id:supplier.id||Date.now(),
+  };
+  return body;
+}
+async function loadSuppliersFromSupabase(){
+  try{
+    const result=await sb.from('suppliers').select('*');
+    if(result.error){
+      console.error('Supabase load suppliers error',result.error);
+      return false;
+    }
+    suppliers=(result.data||[]).map(mapSupplierFromSupabase);
+    return true;
+  }catch(e){
+    console.error('loadSuppliersFromSupabase EXCEPTION',e);
+    return false;
+  }
+}
+async function createSupplierOnSupabase(supplier){
+  try{
+    const body=mapSupplierToSupabase(supplier);
+    const result=await sb.from('suppliers').insert(body).select();
+    if(result.error){
+      console.error('Supabase create supplier error',result.error);
+      return null;
+    }
+    const data=result.data?.[0]||null;
+    if(!data){console.error('Supabase create supplier returned no data');return null;}
+    return mapSupplierFromSupabase(data);
+  }catch(e){
+    console.error('createSupplierOnSupabase EXCEPTION',e);
+    return null;
+  }
+}
+async function updateSupplierOnSupabase(id,supplier){
+  try{
+    const body=mapSupplierToSupabase(supplier);
+    delete body.legacy_id;
+    const {error}=await sb.from('suppliers').update(body).eq('legacy_id',id);
+    if(error){console.error('Supabase update supplier error',error);return false;}
+    return true;
+  }catch(e){console.error('updateSupplierOnSupabase failed',e);return false;}
+}
+async function deleteSupplierOnSupabase(id){
+  try{
+    const {error}=await sb.from('suppliers').delete().eq('legacy_id',id);
+    if(error){console.error('Supabase delete supplier error',error);return false;}
+    return true;
+  }catch(e){console.error('deleteSupplierOnSupabase failed',e);return false;}
 }
 
 // ── NAV ──
@@ -1854,7 +1926,7 @@ function openSupplierModal(id){
   document.getElementById('supplier-modal').classList.add('open');
 }
 
-function saveSupplier(){
+async function saveSupplier(){
   const nom=document.getElementById('s-name').value.trim();
   if(!nom)return;
   const ice=document.getElementById('s-ice').value.trim();
@@ -1863,19 +1935,27 @@ function saveSupplier(){
   const adresse=document.getElementById('s-adresse').value.trim();
   const ville=document.getElementById('s-ville').value.trim();
   if(editSupplierId){
-    Object.assign(suppliers.find(x=>x.id===editSupplierId),{nom,ice,telephone,email,adresse,ville});
+    const old=suppliers.find(x=>x.id===editSupplierId);
+    if(!old)return;
+    Object.assign(old,{nom,ice,telephone,email,adresse,ville});
+    await updateSupplierOnSupabase(editSupplierId,old);
   } else {
-    suppliers.push({id:Date.now(),nom,ice,telephone,email,adresse,ville,createdAt:new Date().toISOString()});
+    const tempId=Date.now();
+    const created=await createSupplierOnSupabase({id:tempId,nom,ice,telephone,email,adresse,ville});
+    if(created){
+      suppliers.push(created);
+    } else {
+      suppliers.push({id:tempId,nom,ice,telephone,email,adresse,ville,createdAt:new Date().toISOString()});
+    }
   }
-  saveData();
   closeModal('supplier-modal');
   renderAll();
 }
 
-function deleteSupplier(id){
+async function deleteSupplier(id){
   if(!confirm(T('sup_confirm_del')))return;
+  await deleteSupplierOnSupabase(id);
   suppliers=suppliers.filter(s=>s.id!==id);
-  saveData();
   renderAll();
 }
 
