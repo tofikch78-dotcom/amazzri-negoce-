@@ -1216,14 +1216,11 @@ const LS_KEY_REC_COUNT = 'amazzri_reccount';
 const LS_KEY_COMPANY = 'companyInfo';
 
 function saveData(){
-  try{
-    localStorage.setItem(LS_KEY_HISTORY,   JSON.stringify(stockHistory));
-  }catch(e){console.warn('Save error',e);}
+  // localStorage no longer used — all entities persisted via Supabase
 }
 
 function loadData(){
-  const sh = localStorage.getItem(LS_KEY_HISTORY);
-  try{if(sh) stockHistory=JSON.parse(sh);}catch(e){console.warn('Failed to load stock history',e);}
+  // localStorage no longer used — all entities loaded from Supabase
 }
 
 function initData(){
@@ -1251,6 +1248,7 @@ async function doLogin(){
   await loadSuppliersFromSupabase();
   await loadReceptionsFromSupabase();
   await loadInvoicesFromSupabase();
+  await loadStockMovementsFromSupabase();
   document.getElementById('login-screen').style.display='none';
   document.getElementById('app').style.display='flex';
   document.getElementById('set-user-val').textContent=currentUser;
@@ -1272,6 +1270,7 @@ async function restoreSession(){
     await loadSuppliersFromSupabase();
     await loadReceptionsFromSupabase();
     await loadInvoicesFromSupabase();
+    await loadStockMovementsFromSupabase();
     document.getElementById('login-screen').style.display='none';
     document.getElementById('app').style.display='flex';
     document.getElementById('set-user-val').textContent=currentUser;
@@ -1737,6 +1736,97 @@ async function deleteInvoiceOnSupabase(id){
   finally{console.log('=== DELETE INVOICE END ===');}
 }
 
+// ── STOCK MOVEMENTS REPOSITORY (Supabase) ──
+function mapStockMovementFromSupabase(row){
+  return{
+    id: row.legacy_id || Date.now(),
+    supabaseId: row.id,
+    productId: row.legacy_product_id,
+    productName: row.product_name,
+    date: row.movement_date,
+    type: row.type,
+    quantity: parseFloat(row.quantity)||0,
+    stockBefore: parseFloat(row.stock_before)||0,
+    stockAfter: parseFloat(row.stock_after)||0,
+    note: row.note||'',
+  };
+}
+function mapStockMovementToSupabase(movement){
+  console.log('MSMTS INPUT movement=',JSON.stringify(movement));
+  console.log('MSMTS productId type=',typeof movement.productId,'value=',movement.productId);
+  const p=products.find(x=>x.id===movement.productId);
+  console.log('MSMTS products.length=',products.length);
+  console.log('MSMTS found product=',p?{id:p.id,supabaseId:p.supabaseId,name:p.name}:null);
+  console.log('MSMTS supabaseId type=',typeof p?.supabaseId,'value=',p?.supabaseId);
+  console.log('MSMTS product_id result=',p?.supabaseId||null);
+  const body={
+    legacy_id: movement.id,
+    legacy_product_id: movement.productId,
+    product_id: p?.supabaseId||null,
+    product_name: movement.productName,
+    movement_date: movement.date,
+    type: movement.type,
+    quantity: movement.quantity,
+    stock_before: movement.stockBefore,
+    stock_after: movement.stockAfter,
+    note: movement.note||'',
+  };
+  console.log('MSMTS FINAL BODY=',JSON.stringify(body));
+  return body;
+}
+async function loadStockMovementsFromSupabase(){
+  console.log('=== LOAD STOCK MOVEMENTS FROM SUPABASE START ===');
+  try{
+    console.log('LMSFS: sb.from(stock_movements).select(*)...');
+    const result=await sb.from('stock_movements').select('*').order('created_at',{ascending:false});
+    console.log('LMSFS RAW RESULT:',result);
+    if(result.error){
+      console.error('LMSFS error:',result.error);
+      console.error('LMSFS error code:',result.error.code);
+      console.error('LMSFS error message:',result.error.message);
+      stockHistory=[];return false;
+    }
+    console.log('LMSFS data count:',result.data?.length||0);
+    if(result.data&&result.data.length>0)console.log('LMSFS first row:',result.data[0]);
+    stockHistory=(result.data||[]).map(mapStockMovementFromSupabase);
+    console.log('STOCK MOVEMENTS LOADED',stockHistory.length);
+    return true;
+  }catch(e){
+    console.error('LMSFS EXCEPTION:',e);
+    console.error('LMSFS EXCEPTION message:',e.message);
+    console.error('LMSFS EXCEPTION stack:',e.stack);
+    return false;
+  }
+  finally{console.log('=== LOAD STOCK MOVEMENTS END ===');}
+}
+async function createStockMovementOnSupabase(movement){
+  console.log('=== CREATE STOCK MOVEMENT START ===',movement.productName,movement.type,movement.quantity);
+  try{
+    const body=mapStockMovementToSupabase(movement);
+    console.log('CSMOS BODY=',JSON.stringify(body));
+    console.log('CSMOS Table: stock_movements, calling insert...');
+    const {data,error}=await sb.from('stock_movements').insert(body).select();
+    console.log('CSMOS RAW RESULT:',{data,error});
+    if(error){
+      console.error('CSMOS ERROR:',error);
+      console.error('CSMOS ERROR code:',error.code);
+      console.error('CSMOS ERROR message:',error.message);
+      console.error('CSMOS ERROR details:',error.details);
+      console.error('CSMOS ERROR hint:',error.hint);
+      return false;
+    }
+    console.log('CSMOS SUCCESS data=',data);
+    console.log('STOCK MOVEMENT CREATED',data?.[0]?.id);
+    return true;
+  }catch(e){
+    console.error('CSMOS EXCEPTION:',e);
+    console.error('CSMOS EXCEPTION message:',e.message);
+    console.error('CSMOS EXCEPTION stack:',e.stack);
+    return false;
+  }
+  finally{console.log('=== CREATE STOCK MOVEMENT END ===');}
+}
+
 // ── NAV ──
 function showSection(id,btn){
   document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
@@ -1927,7 +2017,7 @@ async function saveProduct(){
     Object.assign(old,{name,category:cat,unit,emoji,buy,sell,qty,threshold});
     console.log('SAVE PRODUCT calling updateProductOnSupabase',editId);
     await updateProductOnSupabase(editId,old);
-    if(diff!==0)recordStockMovement(editId,name,diff>0?'STOCK_IN':'STOCK_OUT',Math.abs(diff),oldQty,qty,'Ajustement manuel');
+    if(diff!==0)await recordStockMovement(editId,name,diff>0?'STOCK_IN':'STOCK_OUT',Math.abs(diff),oldQty,qty,'Ajustement manuel');
   }
   else{
     const tempId=Date.now();
@@ -1937,11 +2027,11 @@ async function saveProduct(){
     if(created){
       console.log('SAVE PRODUCT pushing Supabase-returned product');
       products.push(created);
-      if(qty>0)recordStockMovement(created.id,name,'STOCK_IN',qty,0,qty,'Création');
+      if(qty>0)await recordStockMovement(created.id,name,'STOCK_IN',qty,0,qty,'Création');
     }else{
       console.log('SAVE PRODUCT push fallback local-only product');
       products.push({id:tempId,name,category:cat,unit,emoji,buy,sell,qty,threshold});
-      if(qty>0)recordStockMovement(tempId,name,'STOCK_IN',qty,0,qty,'Création');
+      if(qty>0)await recordStockMovement(tempId,name,'STOCK_IN',qty,0,qty,'Création');
     }
   }
   console.log('SAVE PRODUCT complete, products.length:',products.length);
@@ -2213,9 +2303,11 @@ async function saveReceipt(){
     return{productId:l.productId,productName:p?p.name:'?',qty:l.qty};
   });
   // Increase stock and persist to Supabase
+  console.log('SAVE RECEIPT: starting stock loop, resolvedLines=',JSON.stringify(resolvedLines));
   for(const l of resolvedLines){
     const p=products.find(x=>x.id===l.productId);
-    if(p){const before=p.qty;p.qty+=l.qty;recordStockMovement(l.productId,l.productName,'STOCK_IN',l.qty,before,p.qty,'Réception '+(numCtrl||numId));await updateProductOnSupabase(p.id,p);}
+    console.log('SAVE RECEIPT: line productId=',l.productId,'found=',!!p,'p.id=',p?.id,'p.supabaseId=',p?.supabaseId);
+    if(p){const before=p.qty;p.qty+=l.qty;console.log('SAVE RECEIPT: calling recordStockMovement',{productId:l.productId,productName:l.productName,qty:l.qty,before,after:p.qty});await recordStockMovement(l.productId,l.productName,'STOCK_IN',l.qty,before,p.qty,'Réception '+(numCtrl||numId));console.log('SAVE RECEIPT: back from recordStockMovement');await updateProductOnSupabase(p.id,p);}
   }
   const newRec={id:numId,seqId:receiptCounter,date:dateVal,supplier:supplierName,supplierId,lines:resolvedLines,totalItems,notes};
   console.log('SAVE RECEIPT calling createReceptionOnSupabase',JSON.stringify(newRec));
@@ -2237,9 +2329,11 @@ async function deleteReceipt(id){
   if(!confirm(T('rec_del_confirm')))return;
   const rec=receipts.find(r=>r.id===id);
   if(rec&&rec.lines){
+    console.log('DELETE RECEIPT: restoring stock for',rec.id,'lines count=',rec.lines.length);
     for(const l of (rec.lines||[])){
       const p=products.find(x=>x.id===l.productId);
-      if(p){const before=p.qty;p.qty=Math.max(0,p.qty-l.qty);recordStockMovement(l.productId,l.productName,'STOCK_OUT',l.qty,before,p.qty,'Annulation reception '+id);await updateProductOnSupabase(p.id,p);}
+      console.log('DELETE RECEIPT: line productId=',l.productId,'found=',!!p);
+      if(p){const before=p.qty;p.qty=Math.max(0,p.qty-l.qty);console.log('DELETE RECEIPT: calling recordStockMovement',{productId:l.productId,productName:l.productName,qty:l.qty,before,after:p.qty});await recordStockMovement(l.productId,l.productName,'STOCK_OUT',l.qty,before,p.qty,'Annulation reception '+id);console.log('DELETE RECEIPT: back from recordStockMovement');await updateProductOnSupabase(p.id,p);}
     }
   }
   console.log('DELETE RECEIPT calling deleteReceptionOnSupabase',id);
@@ -2286,9 +2380,20 @@ function renderReceipts(){
 }
 
 // ── STOCK HISTORY ──
-function recordStockMovement(productId,productName,type,quantity,stockBefore,stockAfter,note){
-  stockHistory.push({id:Date.now(),productId,productName,date:new Date().toISOString().slice(0,10),type,quantity,stockBefore,stockAfter,note:note||''});
-  saveData();
+async function recordStockMovement(productId,productName,type,quantity,stockBefore,stockAfter,note){
+  console.log('RSM CALLED',{productId,productName,type,quantity,stockBefore,stockAfter,note});
+  const movement={id:Date.now(),productId,productName,date:new Date().toISOString().slice(0,10),type,quantity,stockBefore,stockAfter,note:note||''};
+  console.log('RSM movement created',movement);
+  stockHistory.push(movement);
+  console.log('RSM pushing to stockHistory, new length=',stockHistory.length);
+  try{
+    console.log('RSM calling createStockMovementOnSupabase...');
+    const result=await createStockMovementOnSupabase(movement);
+    console.log('RSM createStockMovementOnSupabase returned',result);
+  }catch(e){
+    console.warn('RSM Supabase stock movement failed',e);
+  }
+  console.log('RSM END');
 }
 function renderStockHistory(){
   const el=document.getElementById('history-table');if(!el)return;
@@ -2466,9 +2571,11 @@ async function saveInvoice(){
   const resolvedLines=lines.map(l=>{const p=products.find(x=>x.id===l.productId);return{productId:l.productId,productName:p?p.name:'?',unit:p?p.unit:'Pcs',qty:l.qty,price:p?p.sell:0};});
   // Deduct stock and persist to Supabase
   console.log('INVOICE STOCK DEDUCTION START');
+  console.log('SAVE INVOICE: resolvedLines=',JSON.stringify(resolvedLines));
   for(const l of resolvedLines){
     const p=products.find(x=>x.id===l.productId);
-    if(p){const before=p.qty;p.qty=Math.max(0,p.qty-l.qty);console.log('INVOICE DEDUCT',p.name,before,'->',p.qty);recordStockMovement(l.productId,l.productName,'SALE',l.qty,before,p.qty,'Facture '+(numCtrl||numId));await updateProductOnSupabase(p.id,p);}
+    console.log('SAVE INVOICE: line productId=',l.productId,'found=',!!p,'p.supabaseId=',p?.supabaseId);
+    if(p){const before=p.qty;p.qty=Math.max(0,p.qty-l.qty);console.log('INVOICE DEDUCT',p.name,before,'->',p.qty);console.log('SAVE INVOICE: calling recordStockMovement');await recordStockMovement(l.productId,l.productName,'SALE',l.qty,before,p.qty,'Facture '+(numCtrl||numId));console.log('SAVE INVOICE: back from recordStockMovement');await updateProductOnSupabase(p.id,p);}
   }
   console.log('INVOICE STOCK DEDUCTION END');
   const newInv={id:numId,seqId:invoiceCounter,client,ice,tel,addr,note,date:dateVal,lines:resolvedLines,total:ttc,tva,mode,modeRef};
@@ -2492,9 +2599,11 @@ async function deleteInvoice(id){
   // Restore stock and persist to Supabase
   console.log('INVOICE STOCK RESTORE START');
   if(inv&&inv.lines){
+    console.log('DELETE INVOICE: restoring stock for',inv.id,'lines count=',inv.lines.length);
     for(const l of (inv.lines||[])){
       const p=products.find(x=>x.id===l.productId);
-      if(p){const before=p.qty;p.qty+=l.qty;console.log('INVOICE RESTORE',p.name,before,'->',p.qty);recordStockMovement(l.productId,l.productName,'STOCK_IN',l.qty,before,p.qty,'Annulation facture '+id);await updateProductOnSupabase(p.id,p);}
+      console.log('DELETE INVOICE: line productId=',l.productId,'found=',!!p);
+      if(p){const before=p.qty;p.qty+=l.qty;console.log('INVOICE RESTORE',p.name,before,'->',p.qty);console.log('DELETE INVOICE: calling recordStockMovement');await recordStockMovement(l.productId,l.productName,'STOCK_IN',l.qty,before,p.qty,'Annulation facture '+id);console.log('DELETE INVOICE: back from recordStockMovement');await updateProductOnSupabase(p.id,p);}
     }
   }
   console.log('INVOICE STOCK RESTORE END');
