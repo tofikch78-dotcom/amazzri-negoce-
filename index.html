@@ -343,6 +343,7 @@ input:checked+.slider:before{transform:translateX(20px);}
       <button onclick="showSection('history',this)">📜 <span id="mn-history">Historique Stock</span></button>
       <button onclick="showSection('reception',this)">📥 <span id="mn-reception">Réception</span></button>
       <button onclick="showSection('invoices',this)">🧾 <span id="mn-inv">Factures</span></button>
+      <button onclick="showSection('credits',this)">💳 <span id="mn-credits">Crédits</span></button>
       <button onclick="showSection('stats',this)">📉 <span id="mn-stats">Statistiques</span></button>
       <button onclick="showSection('reports',this)">📊 <span id="mn-reports">Rapports</span></button>
       <button onclick="showSection('ia',this)">🤖 <span id="mn-ia">Rapport IA</span></button>
@@ -507,6 +508,25 @@ input:checked+.slider:before{transform:translateX(20px);}
           <div id="invoices-list"></div>
         </div>
       </div>
+    </div>
+
+    <!-- CREDITS -->
+    <div id="sec-credits" class="section">
+      <div class="page-header"><h2 id="tt-credits">💳 Gestion des Crédits</h2><p id="tt-credits-sub">Suivi des encours clients</p></div>
+      <!-- Summary cards -->
+      <div id="cr-cards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px;margin-bottom:16px"></div>
+      <!-- Tabs -->
+      <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap">
+        <button class="btn btn-primary btn-sm" onclick="switchCreditTab('clients')" id="cr-tab-clients">Clients</button>
+        <button class="btn btn-edit btn-sm" onclick="switchCreditTab('overdue')" id="cr-tab-overdue">Échéances</button>
+        <button class="btn btn-edit btn-sm" onclick="switchCreditTab('payments')" id="cr-tab-payments">Paiements</button>
+      </div>
+      <!-- Filters -->
+      <div id="cr-filter" style="display:flex;gap:8px;align-items:center;margin-bottom:14px;flex-wrap:wrap">
+        <input type="text" id="cr-search" placeholder="🔍 Rechercher..." style="padding:6px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:.82rem;width:240px" oninput="switchCreditTab(currentCreditTab)">
+      </div>
+      <!-- Tab content -->
+      <div id="cr-content"></div>
     </div>
 
     <!-- STATS -->
@@ -1017,6 +1037,16 @@ const i18n = {
     inv_arrete:'Arrêtée la présente facture à la somme de :',
     inv_facture_lbl:'Facture',inv_piece:'N° de pièce :',inv_client_lbl:'Client :',inv_ice_lbl:'ICE :',inv_marrakech:'Marrakech le :',
     mode_espece:'Espèce',mode_cheque:'Chèque N° :',mode_virement:'Virement',mode_credit:'Crédit',
+    mn_credits:'Crédits',tt_credits:'💳 Gestion des Crédits',tt_credits_sub:'Suivi des encours clients',
+    cr_tab_clients:'Clients',cr_tab_overdue:'Échéances',cr_tab_payments:'Paiements',
+    cr_total_clients:'Clients crédit',cr_total_balance:'Encours total',cr_overdue_count:'Factures impayées',
+    cr_overdue_amount:'Montant impayé',cr_total_payments:'Paiements reçus',
+    cr_col_client:'Client',cr_col_ice:'ICE',cr_col_ville:'Ville',cr_col_credit_limit:'Plafond',
+    cr_col_balance:'Encours',cr_col_used:'Utilisé',cr_col_overdue:'Impayé',cr_col_last_inv:'Dernière facture',
+    cr_col_inv_id:'Facture N°',cr_col_due_date:'Échéance',cr_col_days_overdue:'Jours',
+    cr_col_total:'Total',cr_col_paid:'Payé',cr_col_remaining:'Restant',
+    cr_col_date:'Date',cr_col_mode:'Mode',cr_col_ref:'Réf.',cr_col_note:'Note',cr_col_amount:'Montant',
+    cr_search_ph:'🔍 Rechercher...',cr_no_clients:'Aucun client avec crédit.',cr_no_overdue:'Aucune facture impayée.',cr_no_payments:'Aucun paiement enregistré.',
     pm_title:'Enregistrer un paiement',pm_invoice:'Facture',pm_total:'Total',pm_remaining:'Restant',
     pm_amount:'Montant',pm_date:'Date de paiement',pm_note:'Note',pm_save:'Enregistrer le paiement',
     pm_cancel:'Annuler',pm_err_amount:'Le montant doit être supérieur à 0.',
@@ -1114,6 +1144,16 @@ const i18n = {
     inv_arrete:'Invoice total in words:',
     inv_facture_lbl:'Invoice',inv_piece:'Piece No.:',inv_client_lbl:'Customer:',inv_ice_lbl:'ICE:',inv_marrakech:'Date:',
     mode_espece:'Cash',mode_cheque:'Cheque No.:',mode_virement:'Wire transfer',mode_credit:'Credit',
+    mn_credits:'Credits',tt_credits:'💳 Credit Management',tt_credits_sub:'Client credit tracking',
+    cr_tab_clients:'Clients',cr_tab_overdue:'Overdue',cr_tab_payments:'Payments',
+    cr_total_clients:'Credit clients',cr_total_balance:'Total outstanding',cr_overdue_count:'Overdue invoices',
+    cr_overdue_amount:'Overdue amount',cr_total_payments:'Payments received',
+    cr_col_client:'Client',cr_col_ice:'ICE',cr_col_ville:'City',cr_col_credit_limit:'Limit',
+    cr_col_balance:'Balance',cr_col_used:'Used',cr_col_overdue:'Overdue',cr_col_last_inv:'Last invoice',
+    cr_col_inv_id:'Invoice No.',cr_col_due_date:'Due date',cr_col_days_overdue:'Days',
+    cr_col_total:'Total',cr_col_paid:'Paid',cr_col_remaining:'Remaining',
+    cr_col_date:'Date',cr_col_mode:'Method',cr_col_ref:'Ref.',cr_col_note:'Note',cr_col_amount:'Amount',
+    cr_search_ph:'🔍 Search...',cr_no_clients:'No clients with credit.',cr_no_overdue:'No overdue invoices.',cr_no_payments:'No payments recorded.',
     pm_title:'Record Payment',pm_invoice:'Invoice',pm_total:'Total',pm_remaining:'Remaining',
     pm_amount:'Amount',pm_date:'Payment Date',pm_note:'Note',pm_save:'Save Payment',
     pm_cancel:'Cancel',pm_err_amount:'Amount must be greater than 0.',
@@ -1211,6 +1251,16 @@ const i18n = {
     inv_arrete:'تحرير هذه الفاتورة بمبلغ:',
     inv_facture_lbl:'فاتورة',inv_piece:'رقم القطعة:',inv_client_lbl:'العميل:',inv_ice_lbl:'ICE:',inv_marrakech:'التاريخ:',
     mode_espece:'نقداً',mode_cheque:'شيك رقم:',mode_virement:'تحويل',mode_credit:'ائتمان',
+    mn_credits:'ائتمانات',tt_credits:'💳 إدارة الائتمانات',tt_credits_sub:'متابعة أرصدة العملاء',
+    cr_tab_clients:'العملاء',cr_tab_overdue:'المستحقات',cr_tab_payments:'المدفوعات',
+    cr_total_clients:'عملاء الائتمان',cr_total_balance:'إجمالي المستحقات',cr_overdue_count:'الفواتير المتأخرة',
+    cr_overdue_amount:'المبلغ المتأخر',cr_total_payments:'المدفوعات المستلمة',
+    cr_col_client:'العميل',cr_col_ice:'ICE',cr_col_ville:'المدينة',cr_col_credit_limit:'الحد',
+    cr_col_balance:'الرصيد',cr_col_used:'المستخدم',cr_col_overdue:'متأخر',cr_col_last_inv:'آخر فاتورة',
+    cr_col_inv_id:'رقم الفاتورة',cr_col_due_date:'تاريخ الاستحقاق',cr_col_days_overdue:'أيام',
+    cr_col_total:'المجموع',cr_col_paid:'مدفوع',cr_col_remaining:'المتبقي',
+    cr_col_date:'التاريخ',cr_col_mode:'الطريقة',cr_col_ref:'المرجع',cr_col_note:'ملاحظة',cr_col_amount:'المبلغ',
+    cr_search_ph:'🔍 بحث...',cr_no_clients:'لا يوجد عملاء بالائتمان.',cr_no_overdue:'لا توجد فواتير متأخرة.',cr_no_payments:'لا توجد دفعات مسجلة.',
     pm_title:'تسجيل دفعة',pm_invoice:'الفاتورة',pm_total:'المجموع',pm_remaining:'المتبقي',
     pm_amount:'المبلغ',pm_date:'تاريخ الدفع',pm_note:'ملاحظة',pm_save:'حفظ الدفعة',
     pm_cancel:'إلغاء',pm_err_amount:'يجب أن يكون المبلغ أكبر من 0.',
@@ -1258,7 +1308,7 @@ function applyLang(){
   const p=(id,k)=>{const e=document.getElementById(id);if(e)e.placeholder=T(k);};
   s('lp-sub','lp_sub');s('lp-user-lbl','lp_user');s('lp-pass-lbl','lp_pass');s('lp-btn','lp_btn');
   s('sb-sub','sb_sub');s('mn-dash','mn_dash');s('mn-prod','mn_prod');s('mn-alert','mn_alert');
-  s('mn-inv','mn_inv');s('mn-stats','mn_stats');s('mn-set','mn_set');s('mn-clients','mn_clients');s('mn-suppliers','mn_suppliers');s('mn-history','mn_history');s('mn-reception','mn_reception');s('btn-logout','btn_logout');
+  s('mn-inv','mn_inv');s('mn-credits','mn_credits');s('mn-stats','mn_stats');s('mn-set','mn_set');s('mn-clients','mn_clients');s('mn-suppliers','mn_suppliers');s('mn-history','mn_history');s('mn-reception','mn_reception');s('btn-logout','btn_logout');
   s('tt-dash','tt_dash');s('tt-dash-sub','tt_dash_sub');s('lb-total-prod','lb_total_prod');
   s('hint-total','hint_total');s('lb-val-stock','lb_val');s('lb-revenue','lb_revenue');s('hint-revenue','hint_revenue');s('lb-low','lb_low');s('hint-low','hint_low');
   s('lb-invoices','lb_invoices');s('hint-invoices','hint_invoices');
@@ -1301,6 +1351,9 @@ function applyLang(){
   s('lb-mode','lb_mode');s('lb-mode-ref','lb_mode_ref');s('lb-inv-due-date','lb_inv_due_date');
   s('preview-title','preview_title');s('btn-pdf','btn_pdf');s('btn-excel','btn_excel_lbl');s('btn-close-preview','btn_close');
   s('btn-record-payment','pm_btn');
+  s('tt-credits','tt_credits');s('tt-credits-sub','tt_credits_sub');
+  s('cr-tab-clients','cr_tab_clients');s('cr-tab-overdue','cr_tab_overdue');s('cr-tab-payments','cr_tab_payments');
+  p('cr-search','cr_search_ph');
   s('pm-title','pm_title');s('pm-cancel','pm_cancel');s('pm-save','pm_save');
   s('lb-pm-amount','pm_amount');s('lb-pm-date','pm_date');s('lb-pm-note','pm_note');
   s('lb-pm-mode','pm_mode');s('lb-pm-ref','pm_ref');
@@ -1818,7 +1871,7 @@ async function createInvoiceOnSupabase(invoice){
     const body=mapInvoiceToSupabase(invoice);
     const result=await sb.from('invoices').insert(body).select();
     if(result.error){
-      console.error('Supabase create invoice error',result.error);
+      console.error('Supabase create invoice error:', result.error, result.error.message, result.error.details, result.error.hint, result.error.code);
       return null;
     }
     const data=result.data?.[0]||null;
@@ -1981,11 +2034,110 @@ function showSection(id,btn){
   document.getElementById('sec-'+id).classList.add('active');btn.classList.add('active');
   const fn={dashboard:renderDashboard,products:renderProducts,alerts:renderAlerts,clients:renderClients,suppliers:renderSuppliers,history:renderStockHistory,reception:()=>{renderReceipts();buildRecSupplierDropdown();},ia:renderIAReport,
     invoices:()=>{renderInvoices();renderInvLines();buildProdDropdown();},
+    credits:()=>{currentCreditTab='clients';switchCreditTab('clients');},
     stats:()=>showStatTab('bestsellers'),backup:()=>{},reports:renderReports}
   if(fn[id])fn[id]();
 }
 
-function renderAll(){renderDashboard();renderProducts();renderAlerts();renderClients();renderSuppliers();renderStockHistory();renderReceipts();renderInvoices();calcInvTotal();}
+function renderAll(){renderDashboard();renderProducts();renderAlerts();renderClients();renderSuppliers();renderStockHistory();renderReceipts();renderInvoices();renderCredits();calcInvTotal();}
+
+// ── CREDITS DASHBOARD ──
+let currentCreditTab='clients';
+function switchCreditTab(tab){
+  currentCreditTab=tab;
+  ['clients','overdue','payments'].forEach(t=>document.getElementById('cr-tab-'+t).className=t===tab?'btn btn-primary btn-sm':'btn btn-edit btn-sm');
+  renderCredits();
+}
+function renderCredits(){
+  renderCreditSummaryCards();
+  renderCreditTabContent();
+}
+function renderCreditSummaryCards(){
+  const el=document.getElementById('cr-cards');
+  const today=new Date();today.setHours(0,0,0,0);
+  const creditClients=clients.filter(c=>c.balance>0||c.creditLimit>0);
+  const totalBalance=creditClients.reduce((s,c)=>s+(c.balance||0),0);
+  const overdueInvs=invoices.filter(i=>{const due=i.dueDate?new Date(i.dueDate+'T00:00:00'):null;return due&&due<today&&i.status!=='paid'&&(i.totalPaid||0)<(i.total||0);});
+  const overdueAmount=overdueInvs.reduce((s,i)=>s+(i.total||0)-(i.totalPaid||0),0);
+  const totalPayments=payments.reduce((s,p)=>s+(p.amount||0),0);
+  el.innerHTML=`
+    <div class="card"><div class="label">${T('cr_total_clients')}</div><div class="value">${creditClients.length}</div></div>
+    <div class="card"><div class="label">${T('cr_total_balance')}</div><div class="value">${totalBalance.toLocaleString()} MAD</div></div>
+    <div class="card"><div class="label">${T('cr_overdue_count')}</div><div class="value"${overdueInvs.length?' style="color:var(--danger)"':''}>${overdueInvs.length}</div></div>
+    <div class="card"><div class="label">${T('cr_overdue_amount')}</div><div class="value"${overdueAmount?' style="color:var(--danger)"':''}>${overdueAmount.toLocaleString()} MAD</div></div>
+    <div class="card"><div class="label">${T('cr_total_payments')}</div><div class="value">${totalPayments.toLocaleString()} MAD</div></div>`;
+}
+function renderCreditTabContent(){
+  if(currentCreditTab==='clients')renderCreditClientsTab();
+  else if(currentCreditTab==='overdue')renderCreditOverdueTab();
+  else if(currentCreditTab==='payments')renderCreditPaymentsTab();
+}
+function renderCreditClientsTab(){
+  const el=document.getElementById('cr-content');
+  const q=(document.getElementById('cr-search').value||'').toLowerCase();
+  const filtered=clients.filter(c=>(c.balance>0||c.creditLimit>0)&&(!q||c.nom.toLowerCase().includes(q)||(c.ice||'').toLowerCase().includes(q)||(c.ville||'').toLowerCase().includes(q)));
+  if(!filtered.length){el.innerHTML=`<p style="color:var(--text-muted);padding:20px;text-align:center">${T('cr_no_clients')}</p>`;return;}
+  el.innerHTML=`<table><thead><tr>
+    <th>${T('cr_col_client')}</th><th>${T('cr_col_ice')}</th><th>${T('cr_col_ville')}</th>
+    <th>${T('cr_col_credit_limit')}</th><th>${T('cr_col_balance')}</th>
+    <th>${T('cr_col_used')}</th><th>${T('cr_col_overdue')}</th><th>${T('cr_col_last_inv')}</th>
+  </tr></thead><tbody>${filtered.map(c=>{
+    const usage=c.creditLimit>0?Math.min(100,((c.balance||0)/c.creditLimit*100)).toFixed(0):0;
+    const overdueAmt=invoices.filter(i=>{const due=i.dueDate?new Date(i.dueDate+'T00:00:00'):null;return i.client===c.nom&&due&&due<new Date()&&i.status!=='paid'&&(i.totalPaid||0)<(i.total||0);}).reduce((s,i)=>s+(i.total||0)-(i.totalPaid||0),0);
+    const lastInv=invoices.filter(i=>i.client===c.nom).sort((a,b)=>(b.date||'')>(a.date||'')?1:-1)[0];
+    const usageColor=usage>90?'var(--danger)':usage>70?'var(--warn)':'var(--success)';
+    return `<tr>
+      <td><strong>${c.nom}</strong></td><td>${c.ice||'—'}</td><td>${c.ville||'—'}</td>
+      <td>${(c.creditLimit||0).toLocaleString()}</td>
+      <td style="font-weight:600;color:${(c.balance||0)>0?'var(--danger)':'var(--success)'}">${(c.balance||0).toLocaleString()}</td>
+      <td><span style="color:${usageColor};font-weight:600">${usage}%</span></td>
+      <td style="color:var(--danger);font-weight:600">${overdueAmt>0?overdueAmt.toLocaleString()+' MAD':'—'}</td>
+      <td>${lastInv?lastInv.date+' · '+lastInv.id:'—'}</td>
+    </tr>`;
+  }).join('')}</tbody></table>`;
+}
+function renderCreditOverdueTab(){
+  const el=document.getElementById('cr-content');
+  const q=(document.getElementById('cr-search').value||'').toLowerCase();
+  const today=new Date();today.setHours(0,0,0,0);
+  const overdue=invoices.filter(i=>{const due=i.dueDate?new Date(i.dueDate+'T00:00:00'):null;return due&&due<today&&i.status!=='paid'&&(i.totalPaid||0)<(i.total||0);});
+  const filtered=!q?overdue:overdue.filter(i=>i.id.toLowerCase().includes(q)||i.client.toLowerCase().includes(q));
+  if(!filtered.length){el.innerHTML=`<p style="color:var(--text-muted);padding:20px;text-align:center">${T('cr_no_overdue')}</p>`;return;}
+  el.innerHTML=`<table><thead><tr>
+    <th>${T('cr_col_inv_id')}</th><th>${T('cr_col_client')}</th><th>${T('cr_col_due_date')}</th>
+    <th>${T('cr_col_days_overdue')}</th><th>${T('cr_col_total')}</th><th>${T('cr_col_paid')}</th><th>${T('cr_col_remaining')}</th>
+  </tr></thead><tbody>${filtered.sort((a,b)=>(a.dueDate||'')>(b.dueDate||'')?1:-1).map(i=>{
+    const due=new Date(i.dueDate+'T00:00:00');
+    const days=Math.floor((today-due)/(86400000));
+    const remaining=(i.total||0)-(i.totalPaid||0);
+    return `<tr>
+      <td><strong>${i.id}</strong></td><td>${i.client}</td>
+      <td style="color:var(--danger);font-weight:600">${i.dueDate}</td>
+      <td style="color:var(--danger)">${days} j</td>
+      <td>${(i.total||0).toLocaleString()}</td><td>${(i.totalPaid||0).toLocaleString()}</td>
+      <td style="font-weight:600;color:var(--danger)">${remaining.toLocaleString()} MAD</td>
+    </tr>`;
+  }).join('')}</tbody></table>`;
+}
+function renderCreditPaymentsTab(){
+  const el=document.getElementById('cr-content');
+  const q=(document.getElementById('cr-search').value||'').toLowerCase();
+  const modeLabels={espece:T('mode_espece'),cheque:T('mode_cheque'),virement:T('mode_virement')};
+  const filtered=!q?payments:payments.filter(p=>String(p.invoiceDisplayId).toLowerCase().includes(q)||(p.mode||'').includes(q));
+  if(!filtered.length){el.innerHTML=`<p style="color:var(--text-muted);padding:20px;text-align:center">${T('cr_no_payments')}</p>`;return;}
+  el.innerHTML=`<table><thead><tr>
+    <th>${T('cr_col_date')}</th><th>${T('cr_col_inv_id')}</th><th>${T('cr_col_client')}</th>
+    <th>${T('cr_col_mode')}</th><th>${T('cr_col_ref')}</th><th>${T('cr_col_amount')}</th><th>${T('cr_col_note')}</th>
+  </tr></thead><tbody>${filtered.sort((a,b)=>(b.date||'')>(a.date||'')?1:-1).map(p=>{
+    const inv=invoices.find(i=>String(i.id)===String(p.invoiceDisplayId));
+    return `<tr>
+      <td>${p.date||''}</td><td><strong>${p.invoiceDisplayId||'—'}</strong></td><td>${inv?inv.client:'—'}</td>
+      <td>${modeLabels[p.mode]||p.mode}</td><td>${p.modeRef||'—'}</td>
+      <td style="font-weight:600">${(p.amount||0).toLocaleString()} MAD</td>
+      <td style="font-size:.75rem;color:var(--text-muted)">${p.note||''}</td>
+    </tr>`;
+  }).join('')}</tbody></table>`;
+}
 
 // ── REPORTS ──
 let currentReportTab='sales';
