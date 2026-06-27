@@ -816,10 +816,44 @@ input:checked+.slider:before{transform:translateX(20px);}
       <div style="display:flex;gap:7px;flex-wrap:wrap;">
         <button class="btn btn-green btn-sm" onclick="exportInvoicePDF()" id="btn-pdf">⬇ PDF</button>
         <button class="btn btn-excel btn-sm" onclick="exportInvoiceExcel()" id="btn-excel">⬇ Excel</button>
+        <button class="btn btn-primary btn-sm" onclick="openPaymentModal(previewInvId)" id="btn-record-payment">💰 Enregistrer un paiement</button>
         <button class="btn btn-cancel btn-sm" onclick="closeModal('inv-preview-modal')" id="btn-close-preview">✕ Fermer</button>
       </div>
     </div>
     <div id="inv-preview-body"></div>
+  </div>
+</div>
+
+<!-- PAYMENT MODAL -->
+<div class="modal-overlay" id="payment-modal" onclick="closePaymentModal()">
+  <div class="modal" style="width:480px" onclick="event.stopPropagation()">
+    <h3 id="pm-title">Enregistrer un paiement</h3>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;font-size:.82rem">
+      <div><span class="pm-lbl" style="color:var(--text-muted)">Facture :</span> <strong id="pm-inv-val"></strong></div>
+      <div><span class="pm-lbl" style="color:var(--text-muted)">Client :</span> <strong id="pm-client-val"></strong></div>
+      <div><span class="pm-lbl" style="color:var(--text-muted)">Total :</span> <strong id="pm-total-val"></strong></div>
+      <div><span class="pm-lbl" style="color:var(--text-muted)">Restant :</span> <strong id="pm-remaining-val" style="color:var(--red)"></strong></div>
+    </div>
+    <label id="lb-pm-mode" style="font-size:.82rem;font-weight:600">Mode de paiement</label>
+    <select id="pm-mode" style="width:100%;margin-bottom:10px;padding:8px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:.9rem" onchange="togglePmRef()">
+      <option value="espece">Espèce</option>
+      <option value="cheque">Chèque N° :</option>
+      <option value="virement">Virement</option>
+    </select>
+    <div id="pm-ref-wrap" style="display:none">
+      <label id="lb-pm-ref" style="font-size:.82rem;font-weight:600">Référence</label>
+      <input type="text" id="pm-ref" style="width:100%;margin-bottom:10px;padding:8px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:.9rem">
+    </div>
+    <label id="lb-pm-amount" style="font-size:.82rem;font-weight:600">Montant</label>
+    <input type="number" id="pm-amount" step="0.01" min="0.01" style="width:100%;margin-bottom:10px;padding:8px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:.9rem">
+    <label id="lb-pm-date" style="font-size:.82rem;font-weight:600">Date de paiement</label>
+    <input type="date" id="pm-date" style="width:100%;margin-bottom:10px;padding:8px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:.9rem">
+    <label id="lb-pm-note" style="font-size:.82rem;font-weight:600">Note</label>
+    <input type="text" id="pm-note" style="width:100%;margin-bottom:10px;padding:8px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:.9rem">
+    <div class="modal-actions">
+      <button class="btn btn-cancel" onclick="closePaymentModal()" id="pm-cancel">Annuler</button>
+      <button class="btn btn-green" onclick="recordPayment()" id="pm-save">Enregistrer le paiement</button>
+    </div>
   </div>
 </div>
 
@@ -983,6 +1017,13 @@ const i18n = {
     inv_arrete:'Arrêtée la présente facture à la somme de :',
     inv_facture_lbl:'Facture',inv_piece:'N° de pièce :',inv_client_lbl:'Client :',inv_ice_lbl:'ICE :',inv_marrakech:'Marrakech le :',
     mode_espece:'Espèce',mode_cheque:'Chèque N° :',mode_virement:'Virement',mode_credit:'Crédit',
+    pm_title:'Enregistrer un paiement',pm_invoice:'Facture',pm_total:'Total',pm_remaining:'Restant',
+    pm_amount:'Montant',pm_date:'Date de paiement',pm_note:'Note',pm_save:'Enregistrer le paiement',
+    pm_cancel:'Annuler',pm_err_amount:'Le montant doit être supérieur à 0.',
+    pm_err_exceeds:'Le montant ne peut pas dépasser le restant.',pm_success:'Paiement enregistré avec succès.',
+    pm_btn:'Enregistrer un paiement',pm_history:'Historique des paiements',
+    pm_col_date:'Date',pm_col_mode:'Mode',pm_col_ref:'Réf.',pm_col_amount:'Montant',
+    pm_no_payments:'Aucun paiement.',pm_client:'Client',pm_mode:'Mode de paiement',pm_ref:'Référence',
     mn_clients:'Clients',tt_clients:'Gestion des clients',tt_clients_sub:'Ajouter, modifier, consulter',
     th_cl_nom:'Nom',th_cl_ice:'ICE',th_cl_tel:'Téléphone',th_cl_ville:'Ville',th_cl_email:'Email',th_cl_date:'Créé le',th_cl_act:'Actions',
     cl_btn_add:'+ Ajouter',cl_btn_edit:'Modifier',cl_btn_del:'Supprimer',cl_btn_view:'Détails',
@@ -1073,6 +1114,13 @@ const i18n = {
     inv_arrete:'Invoice total in words:',
     inv_facture_lbl:'Invoice',inv_piece:'Piece No.:',inv_client_lbl:'Customer:',inv_ice_lbl:'ICE:',inv_marrakech:'Date:',
     mode_espece:'Cash',mode_cheque:'Cheque No.:',mode_virement:'Wire transfer',mode_credit:'Credit',
+    pm_title:'Record Payment',pm_invoice:'Invoice',pm_total:'Total',pm_remaining:'Remaining',
+    pm_amount:'Amount',pm_date:'Payment Date',pm_note:'Note',pm_save:'Save Payment',
+    pm_cancel:'Cancel',pm_err_amount:'Amount must be greater than 0.',
+    pm_err_exceeds:'Amount cannot exceed remaining.',pm_success:'Payment recorded successfully.',
+    pm_btn:'Record Payment',pm_history:'Payment History',
+    pm_col_date:'Date',pm_col_mode:'Method',pm_col_ref:'Ref.',pm_col_amount:'Amount',
+    pm_no_payments:'No payments.',pm_client:'Customer',pm_mode:'Payment Method',pm_ref:'Reference',
     mn_clients:'Clients',tt_clients:'Client Management',tt_clients_sub:'Add, edit, view',
     th_cl_nom:'Name',th_cl_ice:'ICE',th_cl_tel:'Phone',th_cl_ville:'City',th_cl_email:'Email',th_cl_date:'Created',th_cl_act:'Actions',
     cl_btn_add:'+ Add',cl_btn_edit:'Edit',cl_btn_del:'Delete',cl_btn_view:'Details',
@@ -1163,6 +1211,13 @@ const i18n = {
     inv_arrete:'تحرير هذه الفاتورة بمبلغ:',
     inv_facture_lbl:'فاتورة',inv_piece:'رقم القطعة:',inv_client_lbl:'العميل:',inv_ice_lbl:'ICE:',inv_marrakech:'التاريخ:',
     mode_espece:'نقداً',mode_cheque:'شيك رقم:',mode_virement:'تحويل',mode_credit:'ائتمان',
+    pm_title:'تسجيل دفعة',pm_invoice:'الفاتورة',pm_total:'المجموع',pm_remaining:'المتبقي',
+    pm_amount:'المبلغ',pm_date:'تاريخ الدفع',pm_note:'ملاحظة',pm_save:'حفظ الدفعة',
+    pm_cancel:'إلغاء',pm_err_amount:'يجب أن يكون المبلغ أكبر من 0.',
+    pm_err_exceeds:'لا يمكن أن يتجاوز المبلغ المتبقي.',pm_success:'تم تسجيل الدفعة بنجاح.',
+    pm_btn:'تسجيل دفعة',pm_history:'سجل الدفعات',
+    pm_col_date:'التاريخ',pm_col_mode:'الطريقة',pm_col_ref:'المرجع',pm_col_amount:'المبلغ',
+    pm_no_payments:'لا توجد دفعات.',pm_client:'العميل',pm_mode:'طريقة الدفع',pm_ref:'المرجع',
     mn_clients:'العملاء',tt_clients:'إدارة العملاء',tt_clients_sub:'إضافة، تعديل، عرض',
     th_cl_nom:'الاسم',th_cl_ice:'ICE',th_cl_tel:'الهاتف',th_cl_ville:'المدينة',th_cl_email:'البريد',th_cl_date:'تاريخ الإنشاء',th_cl_act:'إجراءات',
     cl_btn_add:'+ إضافة',cl_btn_edit:'تعديل',cl_btn_del:'حذف',cl_btn_view:'تفاصيل',
@@ -1245,6 +1300,11 @@ function applyLang(){
   s('lb-ttc-sub','lb_ttc');s('lb-tva','lb_tva');s('lb-net','lb_net');
   s('lb-mode','lb_mode');s('lb-mode-ref','lb_mode_ref');s('lb-inv-due-date','lb_inv_due_date');
   s('preview-title','preview_title');s('btn-pdf','btn_pdf');s('btn-excel','btn_excel_lbl');s('btn-close-preview','btn_close');
+  s('btn-record-payment','pm_btn');
+  s('pm-title','pm_title');s('pm-cancel','pm_cancel');s('pm-save','pm_save');
+  s('lb-pm-amount','pm_amount');s('lb-pm-date','pm_date');s('lb-pm-note','pm_note');
+  s('lb-pm-mode','pm_mode');s('lb-pm-ref','pm_ref');
+  s('pm-inv-lbl','pm_invoice');s('pm-total-lbl','pm_total');s('pm-remaining-lbl','pm_remaining');s('pm-client-lbl','pm_client');
   s('tt-stats','tt_stats');s('st-btn1','st_best');s('st-btn2','st_ben');s('st-btn3','st_slow');
   s('tt-settings','tt_settings');s('tt-set-sub','tt_set_sub');s('set-appearance','set_appearance');s('set-dm-title','set_dm_title');s('set-dm-desc','set_dm_desc');
   s('set-lang-title','set_lang_title');s('set-lang-label','set_lang_label');s('set-lang-desc','set_lang_desc');
@@ -2961,8 +3021,109 @@ function previewInvoice(id){
       ${COMPANY.address} &nbsp;·&nbsp; Tél : ${COMPANY.phone}<br>
       ${COMPANY.rc} &nbsp;·&nbsp; ${COMPANY.if_} &nbsp;·&nbsp; ${COMPANY.pte} &nbsp;·&nbsp; ${COMPANY.cnss} &nbsp;·&nbsp; ${COMPANY.ice}
     </div>
+  </div>
+  <div class="pm-history-wrap" style="margin-top:20px;border-top:1px solid var(--border);padding-top:14px">
+    <h4 style="font-size:.85rem;margin-bottom:8px;font-weight:600" id="pm-history-title">${T('pm_history')}</h4>
+    ${renderPaymentHistory(inv.id)}
   </div>`;
   document.getElementById('inv-preview-modal').classList.add('open');
+}
+
+// ── PAYMENT MODAL ──
+let paymentInvId=null;
+function togglePmRef(){
+  const v=document.getElementById('pm-mode').value;
+  document.getElementById('pm-ref-wrap').style.display=(v==='cheque'||v==='virement')?'block':'none';
+}
+function closePaymentModal(){
+  document.getElementById('payment-modal').classList.remove('open');
+}
+function openPaymentModal(invId){
+  paymentInvId=invId;
+  const inv=invoices.find(i=>i.id===invId);if(!inv)return;
+  const remaining=(inv.total||0)-(inv.totalPaid||0);
+  document.getElementById('pm-inv-val').textContent=inv.id;
+  document.getElementById('pm-client-val').textContent=inv.client;
+  document.getElementById('pm-total-val').textContent=inv.total.toFixed(2)+' MAD';
+  document.getElementById('pm-remaining-val').textContent=remaining.toFixed(2)+' MAD';
+  document.getElementById('pm-amount').value='';
+  document.getElementById('pm-amount').max=remaining;
+  document.getElementById('pm-date').value=new Date().toISOString().slice(0,10);
+  document.getElementById('pm-note').value='';
+  document.getElementById('pm-mode').value='espece';
+  document.getElementById('pm-ref-wrap').style.display='none';
+  document.getElementById('pm-ref').value='';
+  document.getElementById('payment-modal').classList.add('open');
+}
+async function recordPayment(){
+  const inv=invoices.find(i=>i.id===paymentInvId);if(!inv){closePaymentModal();return;}
+  const amount=parseFloat(document.getElementById('pm-amount').value)||0;
+  const remaining=(inv.total||0)-(inv.totalPaid||0);
+  if(amount<=0){showToast(T('pm_err_amount'),'error');return;}
+  if(amount>remaining){showToast(T('pm_err_exceeds'),'error');return;}
+  const pmDate=document.getElementById('pm-date').value||new Date().toISOString().slice(0,10);
+  const pmNote=document.getElementById('pm-note').value.trim()||'';
+  const pmMode=document.getElementById('pm-mode').value;
+  const pmRef=document.getElementById('pm-ref').value.trim()||'';
+  const pmId=Date.now();
+  const client=clients.find(c=>c.nom===inv.client);
+  const payment={id:pmId,clientId:client?client.id:null,invoiceDisplayId:inv.id,date:pmDate,amount,mode:pmMode,modeRef:pmRef,note:pmNote};
+  const created=await createPaymentOnSupabase(payment);
+  if(created){
+    payments.push(created);
+  } else {
+    payments.push(payment);
+  }
+  inv.totalPaid=(inv.totalPaid||0)+amount;
+  recalcInvoiceStatus(inv);
+  const invUpdated=await updateInvoiceOnSupabase(inv.id,inv);
+  if(!invUpdated)showToast('Supabase: erreur mise à jour facture','error');
+  if(client){
+    recalcClientBalance(client.id);
+    const clientUpdated=await updateClientOnSupabase(client.id,client);
+    if(!clientUpdated)showToast('Supabase: erreur mise à jour client','error');
+  }
+  showToast(T('pm_success'),'success');
+  closePaymentModal();
+  renderAll();
+  if(document.getElementById('inv-preview-modal').classList.contains('open'))previewInvoice(inv.id);
+}
+function recalcInvoiceStatus(inv){
+  const remaining=(inv.total||0)-(inv.totalPaid||0);
+  if(remaining<=0){
+    inv.status='paid';
+    inv.paidAt=inv.paidAt||new Date().toISOString();
+  } else if((inv.totalPaid||0)>0){
+    inv.status='partial';
+  } else {
+    inv.status='pending';
+  }
+}
+function recalcClientBalance(clientId){
+  const client=clients.find(c=>c.id===clientId);if(!client)return;
+  const clientInvs=invoices.filter(i=>i.client===client.nom);
+  client.balance=clientInvs.reduce((s,i)=>s+Math.max(0,(i.total||0)-(i.totalPaid||0)),0);
+}
+function renderPaymentHistory(invId){
+  const invPayments=payments.filter(p=>String(p.invoiceDisplayId)===String(invId));
+  if(!invPayments.length)return `<p style="font-size:.78rem;color:var(--text-muted);padding:4px 0">${T('pm_no_payments')}</p>`;
+  const modeLabels={espece:T('mode_espece'),cheque:T('mode_cheque'),virement:T('mode_virement')};
+  return `<table style="width:100%;font-size:.78rem;margin-top:4px">
+    <thead><tr>
+      <th style="text-align:left;padding:4px 6px;border-bottom:1px solid var(--border)">${T('pm_col_date')}</th>
+      <th style="text-align:left;padding:4px 6px;border-bottom:1px solid var(--border)">${T('pm_col_mode')}</th>
+      <th style="text-align:left;padding:4px 6px;border-bottom:1px solid var(--border)">${T('pm_col_ref')}</th>
+      <th style="text-align:right;padding:4px 6px;border-bottom:1px solid var(--border)">${T('pm_col_amount')}</th>
+    </tr></thead>
+    <tbody>${invPayments.sort((a,b)=>(b.date||'')>(a.date||'')?1:-1).map(pm=>`
+      <tr>
+        <td style="padding:3px 6px">${pm.date||''}</td>
+        <td style="padding:3px 6px">${modeLabels[pm.mode]||pm.mode}</td>
+        <td style="padding:3px 6px">${pm.modeRef||'—'}</td>
+        <td style="text-align:right;padding:3px 6px;font-weight:600">${pm.amount.toFixed(2)} MAD</td>
+      </tr>`).join('')}
+    </tbody>
+  </table>`;
 }
 
 // ── PDF ──
