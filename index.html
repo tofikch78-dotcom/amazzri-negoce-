@@ -941,6 +941,49 @@ function loadCompany(){
   }
   populateCompanyForm();
 }
+async function loadCompanyFromSupabase(){
+  try{
+    const {data,error}=await sb.from('company').select('*').limit(1);
+    if(error||!data||!data.length)return false;
+    const r=data[0];
+    if(r.name)COMPANY.name=r.name;
+    if(r.address)COMPANY.address=r.address;
+    if(r.phone)COMPANY.phone=r.phone;
+    if(r.email!==undefined)COMPANY.email=r.email;
+    if(r.website!==undefined)COMPANY.website=r.website;
+    if(r.ice)COMPANY.ice=r.ice;
+    if(r.if_code)COMPANY.if_=r.if_code;
+    if(r.rc)COMPANY.rc=r.rc;
+    if(r.logo_url)COMPANY_LOGO=r.logo_url;
+    document.getElementById('sidebar-logo').src=COMPANY_LOGO;
+    document.getElementById('login-logo-img').src=COMPANY_LOGO;
+    const dn=document.getElementById('dash-co-name');
+    const dd=document.getElementById('dash-co-detail');
+    const dl=document.getElementById('dash-logo');
+    if(dn)dn.textContent=COMPANY.name;
+    if(dd)dd.textContent=COMPANY.ice;
+    if(dl)dl.src=COMPANY_LOGO;
+    populateCompanyForm();
+    return true;
+  }catch(e){console.error('loadCompanyFromSupabase failed',e);return false;}
+}
+async function saveCompanyToSupabase(){
+  try{
+    const {data}=await sb.from('company').select('id').limit(1);
+    const body={
+      name:COMPANY.name,type:COMPANY.type,tag:COMPANY.tag,activity:COMPANY.activity,
+      address:COMPANY.address,phone:COMPANY.phone,email:COMPANY.email,website:COMPANY.website,
+      rc:COMPANY.rc,if_code:COMPANY.if_,ice:COMPANY.ice,logo_url:COMPANY_LOGO,
+    };
+    if(data&&data.length>0){
+      const {error}=await sb.from('company').update(body).eq('id',data[0].id);
+      if(error)console.error('Supabase update company error',error);
+    }else{
+      const {error}=await sb.from('company').insert(body);
+      if(error)console.error('Supabase insert company error',error);
+    }
+  }catch(e){console.error('saveCompanyToSupabase failed',e);}
+}
 function saveCompany(){
   const info={
     name:document.getElementById('ci-name').value.trim(),
@@ -955,6 +998,7 @@ function saveCompany(){
   };
   localStorage.setItem(LS_KEY_COMPANY,JSON.stringify(info));
   loadCompany();
+  saveCompanyToSupabase();
   document.getElementById('ci-status').textContent='✔ '+T('ci_saved');
   document.getElementById('ci-status').style.display='block';
   setTimeout(()=>document.getElementById('ci-status').style.display='none',2500);
@@ -1382,10 +1426,11 @@ function applyLang(){
   if(main&&sb){if(isAr){main.style.marginLeft='0';main.style.marginRight='240px';}else{main.style.marginLeft='240px';main.style.marginRight='0';}}
   renderAll();
 }
-function setLang(l){lang=l;applyLang();}
+function setLang(l){lang=l;localStorage.setItem(LS_KEY_LANG,l);applyLang();}
 function applyDarkMode(on){
   document.body.setAttribute('data-theme',on?'dark':'light');
   document.getElementById('toggle-dark').checked=on;
+  localStorage.setItem(LS_KEY_THEME,on?'dark':'light');
 }
 
 // ── DATA (empty — ready for use) ──
@@ -1401,6 +1446,8 @@ const LS_KEY_HISTORY   = 'amazzri_history';
 const LS_KEY_RECEIPTS  = 'amazzri_receipts';
 const LS_KEY_REC_COUNT = 'amazzri_reccount';
 const LS_KEY_COMPANY = 'companyInfo';
+const LS_KEY_LANG = 'amazzri_lang';
+const LS_KEY_THEME = 'amazzri_theme';
 const BACKUP_VERSION = 2;
 const BACKUP_APP_NAME = 'Amazzri Négoce';
 
@@ -1439,11 +1486,13 @@ async function doLogin(){
   await loadInvoicesFromSupabase();
   await loadStockMovementsFromSupabase();
   await loadPaymentsFromSupabase();
+  await loadCompanyFromSupabase();
   renderDashboardAnalytics();
   document.getElementById('login-screen').style.display='none';
   document.getElementById('app').style.display='flex';
   document.getElementById('set-user-val').textContent=currentUser;
-  applyDarkMode(true);
+  const savedTheme=localStorage.getItem(LS_KEY_THEME);
+  applyDarkMode(savedTheme?savedTheme==='dark':true);
   renderAll();
 }
 document.getElementById('inp-pass').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
@@ -1464,11 +1513,13 @@ async function restoreSession(){
       await loadInvoicesFromSupabase();
       await loadStockMovementsFromSupabase();
       await loadPaymentsFromSupabase();
+      await loadCompanyFromSupabase();
       renderDashboardAnalytics();
       document.getElementById('login-screen').style.display='none';
       document.getElementById('app').style.display='flex';
       document.getElementById('set-user-val').textContent=currentUser;
-      applyDarkMode(true);renderAll();
+      const savedTheme=localStorage.getItem(LS_KEY_THEME);
+      applyDarkMode(savedTheme?savedTheme==='dark':true);renderAll();
     }else{
       document.getElementById('login-screen').style.display='flex';
       document.getElementById('app').style.display='none';
@@ -3692,6 +3743,7 @@ function handleImportBackup(event){
       if(data.companyInfo){localStorage.setItem(LS_KEY_COMPANY,JSON.stringify(data.companyInfo));}
       if(data.companyLogo){COMPANY_LOGO=data.companyLogo;localStorage.setItem(LS_KEY_COMPANY,JSON.stringify({...(data.companyInfo||{}),logo:data.companyLogo}));}
       loadCompany();
+      saveCompanyToSupabase();
       renderAll();
       showBackupStatus('✅ '+T('bk_success_import'),'success');
     }catch(err){
@@ -3742,7 +3794,10 @@ function showToast(msg,type){
 // ── INIT ──
 loadData();          // restore from localStorage (or stay empty on first visit)
 loadCompany();
-applyDarkMode(true);
+const savedTheme=localStorage.getItem(LS_KEY_THEME);
+applyDarkMode(savedTheme?savedTheme==='dark':true);
+const savedLang=localStorage.getItem(LS_KEY_LANG);
+if(savedLang)lang=savedLang;
 const today=new Date().toISOString().slice(0,10);
 document.getElementById('inv-date').value=today;
 applyLang();
