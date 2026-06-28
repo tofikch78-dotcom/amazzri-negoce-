@@ -3274,6 +3274,10 @@ async function recordPayment(){
   const created=await createPaymentOnSupabase(payment);
   if(created){
     payments.push(created);
+    if(created.supabaseId&&inv.supabaseId){
+      const jr=await sb.from('invoice_payments').insert({invoice_id:inv.supabaseId,payment_id:created.supabaseId,amount}).select();
+      if(jr.error)console.error('invoice_payments insert error',jr.error);
+    }
   } else {
     payments.push(payment);
   }
@@ -3680,7 +3684,7 @@ async function syncAllToSupabase(){
     await sb.from('invoices').delete().neq('id','00000000-0000-0000-0000-000000000000');
     await sb.from('stock_movements').delete().neq('id','00000000-0000-0000-0000-000000000000');
     await sb.from('payments').delete().neq('id','00000000-0000-0000-0000-000000000000');
-    for(const p of products) await createProductOnSupabase(p);
+    for(const p of products){const createdP=await createProductOnSupabase(p);if(createdP)Object.assign(p,createdP);}
     for(const c of clients) await createClientOnSupabase(c);
     for(const s of suppliers) await createSupplierOnSupabase(s);
     for(const r of receipts) await createReceptionOnSupabase(r);
