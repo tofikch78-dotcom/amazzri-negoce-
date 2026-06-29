@@ -844,6 +844,17 @@ input:checked+.slider:before{transform:translateX(20px);}
   </div>
 </div>
 
+<!-- CLIENT CREDIT MODAL -->
+<div class="modal-overlay" id="client-credit-modal" onclick="closeClientCreditModal()">
+  <div class="modal" style="width:680px;max-height:90vh;overflow-y:auto" onclick="event.stopPropagation()">
+    <h3 id="cc-title">Détails du crédit client</h3>
+    <div id="cc-body"></div>
+    <div class="modal-actions">
+      <button class="btn btn-cancel" onclick="closeClientCreditModal()" id="cc-close">Fermer</button>
+    </div>
+  </div>
+</div>
+
 <!-- PAYMENT MODAL -->
 <div class="modal-overlay" id="payment-modal" onclick="closePaymentModal()">
   <div class="modal" style="width:480px" onclick="event.stopPropagation()">
@@ -1098,6 +1109,10 @@ const i18n = {
     pm_btn:'Enregistrer un paiement',pm_history:'Historique des paiements',
     pm_col_date:'Date',pm_col_mode:'Mode',pm_col_ref:'Réf.',pm_col_amount:'Montant',
     pm_no_payments:'Aucun paiement.',pm_client:'Client',pm_mode:'Mode de paiement',pm_ref:'Référence',
+    cc_title:'Détails du crédit client',cc_info:'Informations',cc_available:'Disponible',
+    cc_aging:'Échéancier',cc_current:'Courant',cc_days_0_30:'0–30 jours',cc_days_31_60:'31–60 jours',
+    cc_days_61_90:'61–90 jours',cc_days_90_plus:'90+ jours',cc_invoices:'Factures',
+    cc_col_status:'Statut',cc_no_invoices:'Aucune facture.',cc_payments:'Paiements',cc_no_payments:'Aucun paiement.',
     mn_clients:'Clients',tt_clients:'Gestion des clients',tt_clients_sub:'Ajouter, modifier, consulter',
     th_cl_nom:'Nom',th_cl_ice:'ICE',th_cl_tel:'Téléphone',th_cl_ville:'Ville',th_cl_email:'Email',th_cl_date:'Créé le',th_cl_act:'Actions',
     cl_btn_add:'+ Ajouter',cl_btn_edit:'Modifier',cl_btn_del:'Supprimer',cl_btn_view:'Détails',
@@ -1205,6 +1220,10 @@ const i18n = {
     pm_btn:'Record Payment',pm_history:'Payment History',
     pm_col_date:'Date',pm_col_mode:'Method',pm_col_ref:'Ref.',pm_col_amount:'Amount',
     pm_no_payments:'No payments.',pm_client:'Customer',pm_mode:'Payment Method',pm_ref:'Reference',
+    cc_title:'Client Credit Details',cc_info:'Information',cc_available:'Available',
+    cc_aging:'Aging',cc_current:'Current',cc_days_0_30:'0–30 days',cc_days_31_60:'31–60 days',
+    cc_days_61_90:'61–90 days',cc_days_90_plus:'90+ days',cc_invoices:'Invoices',
+    cc_col_status:'Status',cc_no_invoices:'No invoices.',cc_payments:'Payments',cc_no_payments:'No payments.',
     mn_clients:'Clients',tt_clients:'Client Management',tt_clients_sub:'Add, edit, view',
     th_cl_nom:'Name',th_cl_ice:'ICE',th_cl_tel:'Phone',th_cl_ville:'City',th_cl_email:'Email',th_cl_date:'Created',th_cl_act:'Actions',
     cl_btn_add:'+ Add',cl_btn_edit:'Edit',cl_btn_del:'Delete',cl_btn_view:'Details',
@@ -1312,6 +1331,10 @@ const i18n = {
     pm_btn:'تسجيل دفعة',pm_history:'سجل الدفعات',
     pm_col_date:'التاريخ',pm_col_mode:'الطريقة',pm_col_ref:'المرجع',pm_col_amount:'المبلغ',
     pm_no_payments:'لا توجد دفعات.',pm_client:'العميل',pm_mode:'طريقة الدفع',pm_ref:'المرجع',
+    cc_title:'تفاصيل رصيد العميل',cc_info:'المعلومات',cc_available:'المتاح',
+    cc_aging:'التقادم',cc_current:'الحالي',cc_days_0_30:'0–30 يوم',cc_days_31_60:'31–60 يوم',
+    cc_days_61_90:'61–90 يوم',cc_days_90_plus:'90+ يوم',cc_invoices:'الفواتير',
+    cc_col_status:'الحالة',cc_no_invoices:'لا توجد فواتير.',cc_payments:'المدفوعات',cc_no_payments:'لا توجد مدفوعات.',
     mn_clients:'العملاء',tt_clients:'إدارة العملاء',tt_clients_sub:'إضافة، تعديل، عرض',
     th_cl_nom:'الاسم',th_cl_ice:'ICE',th_cl_tel:'الهاتف',th_cl_ville:'المدينة',th_cl_email:'البريد',th_cl_date:'تاريخ الإنشاء',th_cl_act:'إجراءات',
     cl_btn_add:'+ إضافة',cl_btn_edit:'تعديل',cl_btn_del:'حذف',cl_btn_view:'تفاصيل',
@@ -1402,6 +1425,7 @@ function applyLang(){
   s('lb-pm-amount','pm_amount');s('lb-pm-date','pm_date');s('lb-pm-note','pm_note');
   s('lb-pm-mode','pm_mode');s('lb-pm-ref','pm_ref');
   s('pm-inv-lbl','pm_invoice');s('pm-total-lbl','pm_total');s('pm-remaining-lbl','pm_remaining');s('pm-client-lbl','pm_client');
+  s('cc-title','cc_title');s('cc-close','cd_close');
   s('tt-stats','tt_stats');s('st-btn1','st_best');s('st-btn2','st_ben');s('st-btn3','st_slow');
   s('tt-settings','tt_settings');s('tt-set-sub','tt_set_sub');s('set-appearance','set_appearance');s('set-dm-title','set_dm_title');s('set-dm-desc','set_dm_desc');
   s('set-lang-title','set_lang_title');s('set-lang-label','set_lang_label');s('set-lang-desc','set_lang_desc');
@@ -2132,6 +2156,7 @@ function renderCreditClientsTab(){
     <th>${T('cr_col_client')}</th><th>${T('cr_col_ice')}</th><th>${T('cr_col_ville')}</th>
     <th>${T('cr_col_credit_limit')}</th><th>${T('cr_col_balance')}</th>
     <th>${T('cr_col_used')}</th><th>${T('cr_col_overdue')}</th><th>${T('cr_col_last_inv')}</th>
+    <th>${T('th_act')}</th>
   </tr></thead><tbody>${filtered.map(c=>{
     const usage=c.creditLimit>0?Math.min(100,((c.balance||0)/c.creditLimit*100)).toFixed(0):0;
     const overdueAmt=invoices.filter(i=>{const due=i.dueDate?new Date(i.dueDate+'T00:00:00'):null;return i.client===c.nom&&due&&due<new Date()&&i.status!=='paid'&&(i.totalPaid||0)<(i.total||0);}).reduce((s,i)=>s+(i.total||0)-(i.totalPaid||0),0);
@@ -2144,6 +2169,7 @@ function renderCreditClientsTab(){
       <td><span style="color:${usageColor};font-weight:600">${usage}%</span></td>
       <td style="color:var(--danger);font-weight:600">${overdueAmt>0?overdueAmt.toLocaleString()+' MAD':'—'}</td>
       <td>${lastInv?lastInv.date+' · '+lastInv.id:'—'}</td>
+        <td><button class="btn btn-green btn-sm" onclick="openClientCreditModal(${c.id})">${T('btn_view')}</button></td>
     </tr>`;
   }).join('')}</tbody></table>`;
 }
@@ -2151,8 +2177,8 @@ function renderCreditOverdueTab(){
   const el=document.getElementById('cr-content');
   const q=(document.getElementById('cr-search').value||'').toLowerCase();
   const today=new Date();today.setHours(0,0,0,0);
-  const overdue=invoices.filter(i=>{const due=i.dueDate?new Date(i.dueDate+'T00:00:00'):null;return due&&due<today&&i.status!=='paid'&&(i.totalPaid||0)<(i.total||0);});
-  const filtered=!q?overdue:overdue.filter(i=>i.id.toLowerCase().includes(q)||i.client.toLowerCase().includes(q));
+  const dueInvs=invoices.filter(i=>{const due=i.dueDate?new Date(i.dueDate+'T00:00:00'):null;return due&&i.status!=='paid'&&(i.totalPaid||0)<(i.total||0);});
+  const filtered=!q?dueInvs:dueInvs.filter(i=>i.id.toLowerCase().includes(q)||i.client.toLowerCase().includes(q));
   if(!filtered.length){el.innerHTML=`<p style="color:var(--text-muted);padding:20px;text-align:center">${T('cr_no_overdue')}</p>`;return;}
   el.innerHTML=`<table><thead><tr>
     <th>${T('cr_col_inv_id')}</th><th>${T('cr_col_client')}</th><th>${T('cr_col_due_date')}</th>
@@ -2161,12 +2187,13 @@ function renderCreditOverdueTab(){
     const due=new Date(i.dueDate+'T00:00:00');
     const days=Math.floor((today-due)/(86400000));
     const remaining=(i.total||0)-(i.totalPaid||0);
+    const isOverdue=i.status!=='paid'&&days>=0;
     return `<tr>
       <td><strong>${i.id}</strong></td><td>${i.client}</td>
-      <td style="color:var(--danger);font-weight:600">${i.dueDate}</td>
-      <td style="color:var(--danger)">${days} j</td>
+      <td style="font-weight:600">${i.dueDate}</td>
+      <td>${isOverdue?`<span style="color:var(--danger)">${days} j</span>`:`<span style="color:var(--text-muted)">⏳ ${T('inv_status_pending')}</span>`}</td>
       <td>${(i.total||0).toLocaleString()}</td><td>${(i.totalPaid||0).toLocaleString()}</td>
-      <td style="font-weight:600;color:var(--danger)">${remaining.toLocaleString()} MAD</td>
+      <td style="font-weight:600;color:${remaining>0?'var(--danger)':'var(--success)'}">${remaining.toLocaleString()} MAD</td>
     </tr>`;
   }).join('')}</tbody></table>`;
 }
@@ -2188,6 +2215,105 @@ function renderCreditPaymentsTab(){
       <td style="font-size:.75rem;color:var(--text-muted)">${p.note||''}</td>
     </tr>`;
   }).join('')}</tbody></table>`;
+}
+
+// ── CLIENT CREDIT MODAL ──
+function closeClientCreditModal(){
+  document.getElementById('client-credit-modal').classList.remove('open');
+}
+function openClientCreditModal(clientId){
+  const client=clients.find(c=>c.id===clientId);if(!client)return;
+  renderClientCreditDetail(client);
+  document.getElementById('client-credit-modal').classList.add('open');
+}
+function renderClientCreditDetail(client){
+  const today=new Date();today.setHours(0,0,0,0);
+  const clientInvs=invoices.filter(i=>i.client===client.nom);
+  const activeInvs=clientInvs.filter(i=>i.status!=='paid'&&(i.totalPaid||0)<(i.total||0));
+  const balance=client.balance||0;
+  const creditLimit=client.creditLimit||0;
+  const available=Math.max(0,creditLimit-balance);
+  const aging={current:0,days0_30:0,days31_60:0,days61_90:0,days90plus:0};
+  activeInvs.forEach(i=>{
+    const remaining=(i.total||0)-(i.totalPaid||0);
+    if(!i.dueDate){aging.current+=remaining;return;}
+    const due=new Date(i.dueDate+'T00:00:00');
+    const diff=Math.floor((today-due)/86400000);
+    if(diff<=0)aging.current+=remaining;
+    else if(diff<=30)aging.days0_30+=remaining;
+    else if(diff<=60)aging.days31_60+=remaining;
+    else if(diff<=90)aging.days61_90+=remaining;
+    else aging.days90plus+=remaining;
+  });
+  let html=`
+    <div style="margin-bottom:16px">
+      <h4 style="margin:0 0 8px;font-size:.85rem;color:var(--text-muted)">${T('cc_info')}</h4>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;font-size:.82rem">
+        <div><span style="color:var(--text-muted)">${T('cr_col_client')}:</span> <strong>${client.nom}</strong></div>
+        <div><span style="color:var(--text-muted)">${T('cr_col_ice')}:</span> ${client.ice||'—'}</div>
+        <div><span style="color:var(--text-muted)">${T('cr_col_ville')}:</span> ${client.ville||'—'}</div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px">
+      <div class="card"><div class="label">${T('cr_col_credit_limit')}</div><div class="value">${creditLimit.toLocaleString()} MAD</div></div>
+      <div class="card"><div class="label">${T('cr_col_balance')}</div><div class="value" style="color:${balance>0?'var(--danger)':'var(--success)'}">${balance.toLocaleString()} MAD</div></div>
+      <div class="card"><div class="label">${T('cc_available')}</div><div class="value" style="color:${available>0?'var(--success)':'var(--text-muted)'}">${available.toLocaleString()} MAD</div></div>
+    </div>
+    <h4 style="margin:0 0 8px;font-size:.85rem;color:var(--text-muted)">${T('cc_aging')}</h4>
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:16px">
+      <div class="card"><div class="label">${T('cc_current')}</div><div class="value" style="font-size:.82rem">${aging.current.toLocaleString()}</div></div>
+      <div class="card"><div class="label">${T('cc_days_0_30')}</div><div class="value" style="font-size:.82rem;color:${aging.days0_30>0?'var(--warn)':'inherit'}">${aging.days0_30.toLocaleString()}</div></div>
+      <div class="card"><div class="label">${T('cc_days_31_60')}</div><div class="value" style="font-size:.82rem;color:${aging.days31_60>0?'var(--warn)':'inherit'}">${aging.days31_60.toLocaleString()}</div></div>
+      <div class="card"><div class="label">${T('cc_days_61_90')}</div><div class="value" style="font-size:.82rem;color:${aging.days61_90>0?'var(--danger)':'inherit'}">${aging.days61_90.toLocaleString()}</div></div>
+      <div class="card"><div class="label">${T('cc_days_90_plus')}</div><div class="value" style="font-size:.82rem;color:${aging.days90plus>0?'var(--danger)':'inherit'}">${aging.days90plus.toLocaleString()}</div></div>
+    </div>`;
+  html+=`<h4 style="margin:0 0 8px;font-size:.85rem;color:var(--text-muted)">${T('cc_invoices')}</h4>`;
+  if(!clientInvs.length){
+    html+=`<p style="font-size:.78rem;color:var(--text-muted);padding:4px 0">${T('cc_no_invoices')}</p>`;
+  } else {
+    html+=`<table style="width:100%;font-size:.78rem;margin-bottom:16px"><thead><tr>
+      <th style="text-align:left;padding:4px 6px;border-bottom:1px solid var(--border)">${T('cr_col_inv_id')}</th>
+      <th style="text-align:left;padding:4px 6px;border-bottom:1px solid var(--border)">${T('cr_col_due_date')}</th>
+      <th style="text-align:left;padding:4px 6px;border-bottom:1px solid var(--border)">${T('cc_col_status')}</th>
+      <th style="text-align:right;padding:4px 6px;border-bottom:1px solid var(--border)">${T('cr_col_total')}</th>
+      <th style="text-align:right;padding:4px 6px;border-bottom:1px solid var(--border)">${T('cr_col_paid')}</th>
+      <th style="text-align:right;padding:4px 6px;border-bottom:1px solid var(--border)">${T('cr_col_remaining')}</th>
+    </tr></thead><tbody>${clientInvs.sort((a,b)=>(b.date||'')>(a.date||'')?1:-1).map(i=>{
+      const remaining=(i.total||0)-(i.totalPaid||0);
+      const dueStr=i.dueDate?i.dueDate:'—';
+      return `<tr>
+        <td style="padding:3px 6px"><strong>${i.id}</strong></td>
+        <td style="padding:3px 6px">${dueStr}</td>
+        <td style="padding:3px 6px">${getInvStatusDisplay(i)}</td>
+        <td style="text-align:right;padding:3px 6px">${(i.total||0).toLocaleString()}</td>
+        <td style="text-align:right;padding:3px 6px">${(i.totalPaid||0).toLocaleString()}</td>
+        <td style="text-align:right;padding:3px 6px;font-weight:600;color:${remaining>0?'var(--danger)':'var(--success)'}">${remaining.toLocaleString()}</td>
+      </tr>`;
+    }).join('')}</tbody></table>`;
+  }
+  const clientPmts=payments.filter(p=>String(p.clientId)===String(client.id));
+  html+=`<h4 style="margin:0 0 8px;font-size:.85rem;color:var(--text-muted)">${T('cc_payments')}</h4>`;
+  if(!clientPmts.length){
+    html+=`<p style="font-size:.78rem;color:var(--text-muted);padding:4px 0">${T('cc_no_payments')}</p>`;
+  } else {
+    const modeLabels={espece:T('mode_espece'),cheque:T('mode_cheque'),virement:T('mode_virement')};
+    html+=`<table style="width:100%;font-size:.78rem"><thead><tr>
+      <th style="text-align:left;padding:4px 6px;border-bottom:1px solid var(--border)">${T('pm_col_date')}</th>
+      <th style="text-align:left;padding:4px 6px;border-bottom:1px solid var(--border)">${T('cr_col_inv_id')}</th>
+      <th style="text-align:left;padding:4px 6px;border-bottom:1px solid var(--border)">${T('pm_col_mode')}</th>
+      <th style="text-align:left;padding:4px 6px;border-bottom:1px solid var(--border)">${T('pm_col_ref')}</th>
+      <th style="text-align:right;padding:4px 6px;border-bottom:1px solid var(--border)">${T('pm_col_amount')}</th>
+    </tr></thead><tbody>${clientPmts.sort((a,b)=>(b.date||'')>(a.date||'')?1:-1).map(p=>{
+      return `<tr>
+        <td style="padding:3px 6px">${p.date||''}</td>
+        <td style="padding:3px 6px"><strong>${p.invoiceDisplayId||'—'}</strong></td>
+        <td style="padding:3px 6px">${modeLabels[p.mode]||p.mode}</td>
+        <td style="padding:3px 6px">${p.modeRef||'—'}</td>
+        <td style="text-align:right;padding:3px 6px;font-weight:600">${(p.amount||0).toLocaleString()} MAD</td>
+      </tr>`;
+    }).join('')}</tbody></table>`;
+  }
+  document.getElementById('cc-body').innerHTML=html;
 }
 
 // ── REPORTS ──
@@ -2238,11 +2364,11 @@ function renderStockReport(cards,tbl){
   tbl.innerHTML=`<table><thead><tr><th>${T('ml_name')}</th><th>${T('ml_cat')}</th><th>${T('ml_qte')}</th><th>${T('ml_achat')}</th><th>${T('rpt_stock_value')}</th><th>${T('ml_seuil')}</th></tr></thead><tbody>${products.map(p=>{const lv=isLow(p);return`<tr${lv?' style="background:rgba(239,68,68,.08)"':''}><td>${p.emoji} ${p.name}</td><td>${p.category||'—'}</td><td>${p.qty}</td><td>${(p.buy||0).toFixed(2)}</td><td>${((p.buy||0)*(p.qty||0)).toLocaleString()}</td><td>${p.threshold||5}</td></tr>`;}).join('')}</tbody></table>`;
 }
 function renderClientReport(cards,tbl){
-  const withInv=clients.filter(c=>invoices.some(i=>i.clientId===c.id));
-  const without=clients.filter(c=>!invoices.some(i=>i.clientId===c.id));
+  const withInv=clients.filter(c=>invoices.some(i=>i.client===c.nom));
+  const without=clients.filter(c=>!invoices.some(i=>i.client===c.nom));
   cards.innerHTML=`<div class="card"><div class="label">${T('rpt_total_clients')}</div><div class="value">${clients.length}</div></div><div class="card"><div class="label">${T('rpt_active_clients')}</div><div class="value">${withInv.length}</div></div><div class="card"><div class="label">${T('rpt_inactive_clients')}</div><div class="value">${without.length}</div></div>`;
   if(!clients.length){tbl.innerHTML=`<p style="color:var(--text-muted);padding:20px;text-align:center">${T('rpt_no_data')}</p>`;return;}
-  tbl.innerHTML=`<table><thead><tr><th>${T('th_cl_nom')}</th><th>ICE</th><th>${T('rpt_num_invoices')}</th><th>${T('rpt_inv_total')}</th><th>${T('rpt_last_inv')}</th></tr></thead><tbody>${clients.map(c=>{const cis=invoices.filter(i=>i.clientId===c.id);const tot=cis.reduce((s,i)=>s+(i.total||0),0);const last=cis.length?cis.reduce((a,b)=>(a.date||'')>(b.date||'')?a:b):null;return`<tr><td>${c.name}</td><td>${c.ice||'—'}</td><td>${cis.length}</td><td>${tot.toLocaleString()}</td><td>${last?last.date:'—'}</td></tr>`;}).join('')}</tbody></table>`;
+  tbl.innerHTML=`<table><thead><tr><th>${T('th_cl_nom')}</th><th>ICE</th><th>${T('rpt_num_invoices')}</th><th>${T('rpt_inv_total')}</th><th>${T('rpt_last_inv')}</th></tr></thead><tbody>${clients.map(c=>{const cis=invoices.filter(i=>i.client===c.nom);const tot=cis.reduce((s,i)=>s+(i.total||0),0);const last=cis.length?cis.reduce((a,b)=>(a.date||'')>(b.date||'')?a:b):null;        return`<tr><td>${c.nom}</td><td>${c.ice||'—'}</td><td>${cis.length}</td><td>${tot.toLocaleString()}</td><td>${last?last.date:'—'}</td></tr>`;}).join('')}</tbody></table>`;
 }
 function renderSupplierReport(cards,tbl){
   const withRec=suppliers.filter(s=>receipts.some(r=>r.supplierId===s.id));
@@ -2316,14 +2442,14 @@ function exportStockExcel(){
 function exportClientsPDF(){
   const {jsPDF}=window.jspdf;const doc=new jsPDF({unit:'mm',format:'a4'});const m=14;
   doc.setFontSize(16);doc.text('Rapport des Clients',m,20);
-  doc.setFontSize(11);doc.text(`Total: ${clients.length}  |  Actifs: ${clients.filter(c=>invoices.some(i=>i.clientId===c.id)).length}`,m,28);
-  if(clients.length){const rows=clients.map(c=>{const cis=invoices.filter(i=>i.clientId===c.id);const tot=cis.reduce((s,i)=>s+(i.total||0),0);const last=cis.length?cis.reduce((a,b)=>(a.date||'')>(b.date||'')?a:b):null;return[c.name,c.ice||'—',String(cis.length),tot.toFixed(2)+' MAD',last?last.date:'—'];});
+  doc.setFontSize(11);doc.text(`Total: ${clients.length}  |  Actifs: ${clients.filter(c=>invoices.some(i=>i.client===c.nom)).length}`,m,28);
+  if(clients.length){const rows=clients.map(c=>{const cis=invoices.filter(i=>i.client===c.nom);const tot=cis.reduce((s,i)=>s+(i.total||0),0);const last=cis.length?cis.reduce((a,b)=>(a.date||'')>(b.date||'')?a:b):null;return[c.nom,c.ice||'—',String(cis.length),tot.toFixed(2)+' MAD',last?last.date:'—'];});
   doc.autoTable({startY:35,margin:{left:m,right:m},head:[['Nom','ICE','Factures','Total','Dernière']],body:rows,styles:{fontSize:8},headStyles:{fillColor:[50,50,50]}});}
   doc.save('rapport_clients.pdf');
 }
 function exportClientsExcel(){
   const wb=XLSX.utils.book_new();
-  const data=clients.map(c=>{const cis=invoices.filter(i=>i.clientId===c.id);return{Nom:c.name,ICE:c.ice||'',Factures:cis.length,'Total MAD':cis.reduce((s,i)=>s+(i.total||0),0),'Dernière facture':cis.length?cis.reduce((a,b)=>(a.date||'')>(b.date||'')?a:b).date:''};});
+  const data=clients.map(c=>{const cis=invoices.filter(i=>i.client===c.nom);return{Nom:c.nom,ICE:c.ice||'',Factures:cis.length,'Total MAD':cis.reduce((s,i)=>s+(i.total||0),0),'Dernière facture':cis.length?cis.reduce((a,b)=>(a.date||'')>(b.date||'')?a:b).date:''};});
   const ws=XLSX.utils.json_to_sheet(data);
   ws['!cols']=[{wch:25},{wch:18},{wch:10},{wch:14},{wch:14}];
   XLSX.utils.book_append_sheet(wb,ws,'Clients');
@@ -3120,6 +3246,13 @@ async function deleteInvoice(id){
   }
   if(!await deleteInvoiceOnSupabase(id))showToast('Supabase: erreur suppression facture','error');
   invoices=invoices.filter(i=>i.id!==id);
+  const delPmts=payments.filter(p=>p.invoiceDisplayId===id);
+  for(const dp of delPmts){await deletePaymentOnSupabase(dp.id);}
+  payments=payments.filter(p=>p.invoiceDisplayId!==id);
+  if(inv&&inv.client){
+    const client=clients.find(c=>c.nom===inv.client);
+    if(client){recalcClientBalance(client.id);await updateClientOnSupabase(client.id,client);}
+  }
   renderAll();
 }
 
@@ -3698,6 +3831,14 @@ async function syncAllToSupabase(){
     await loadInvoicesFromSupabase();
     await loadStockMovementsFromSupabase();
     await loadPaymentsFromSupabase();
+    for(const p of payments){
+      if(p.invoiceDisplayId){
+        const inv=invoices.find(i=>i.id===p.invoiceDisplayId);
+        if(inv&&inv.supabaseId&&p.supabaseId){
+          await sb.from('invoice_payments').insert({invoice_id:inv.supabaseId,payment_id:p.supabaseId,amount:p.amount}).select();
+        }
+      }
+    }
   }catch(e){
     console.error('[SYNC] error:',e);
     showBackupStatus('❌ '+T('bk_err_sync'),'error');
@@ -3710,7 +3851,7 @@ function exportBackup(){
     appName: BACKUP_APP_NAME,
     version: BACKUP_VERSION,
     createdAt: new Date().toISOString(),
-    products, invoices, invoiceCounter, clients, suppliers, stockHistory, receipts, receiptCounter,
+    products, invoices, invoiceCounter, clients, suppliers, stockHistory, receipts, receiptCounter, payments,
     companyInfo: ci||{...COMPANY},
     companyLogo:COMPANY_LOGO!==LOGO_SRC?COMPANY_LOGO:null,
     settings:{lang,theme:document.body.getAttribute('data-theme')||'dark'}
@@ -3730,7 +3871,7 @@ function handleImportBackup(event){
       if(!data||typeof data!=='object'){showBackupStatus('❌ '+T('bk_err_parse'),'error');return;}
       if(data.appName!==BACKUP_APP_NAME){showBackupStatus('❌ '+T('bk_err_app_name'),'error');return;}
       if(typeof data.version!=='number'||data.version!==BACKUP_VERSION){showBackupStatus('❌ '+T('bk_err_version'),'error');return;}
-      const required=['products','invoices','clients','suppliers','stockHistory','receipts'];
+      const required=['products','invoices','clients','suppliers','stockHistory','receipts','payments'];
       for(const k of required){if(!Array.isArray(data[k])){showBackupStatus('❌ '+T('bk_err_missing'),'error');return;}}
       if(!confirm(T('bk_confirm_import')))return;
       products=data.products||[];
@@ -3741,6 +3882,7 @@ function handleImportBackup(event){
       stockHistory=data.stockHistory||[];
       receipts=data.receipts||[];
       receiptCounter=typeof data.receiptCounter==='number'?data.receiptCounter:1;
+      payments=data.payments||[];
       await syncAllToSupabase();
       if(data.settings&&data.settings.lang)setLang(data.settings.lang);
       if(data.settings&&data.settings.theme)applyDarkMode(data.settings.theme==='dark');
