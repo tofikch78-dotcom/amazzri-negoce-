@@ -2375,7 +2375,7 @@ function renderSupplierReport(cards,tbl){
   const without=suppliers.filter(s=>!receipts.some(r=>r.supplierId===s.id));
   cards.innerHTML=`<div class="card"><div class="label">${T('rpt_total_suppliers')}</div><div class="value">${suppliers.length}</div></div><div class="card"><div class="label">${T('rpt_active_suppliers')}</div><div class="value">${withRec.length}</div></div><div class="card"><div class="label">${T('rpt_inactive_suppliers')}</div><div class="value">${without.length}</div></div>`;
   if(!suppliers.length){tbl.innerHTML=`<p style="color:var(--text-muted);padding:20px;text-align:center">${T('rpt_no_data')}</p>`;return;}
-  tbl.innerHTML=`<table><thead><tr><th>${T('th_sup_name')}</th><th>${T('rpt_num_receptions')}</th><th>${T('rpt_total_qty')}</th><th>${T('rpt_last_rec')}</th></tr></thead><tbody>${suppliers.map(s=>{const rcs=receipts.filter(r=>r.supplierId===s.id);const q=rcs.reduce((sq,r)=>sq+(r.lines||[]).reduce((sl,l)=>sl+(l.qty||0),0),0);const last=rcs.length?rcs.reduce((a,b)=>(a.date||'')>(b.date||'')?a:b):null;return`<tr><td>${s.name}</td><td>${rcs.length}</td><td>${q}</td><td>${last?last.date:'—'}</td></tr>`;}).join('')}</tbody></table>`;
+  tbl.innerHTML=`<table><thead><tr><th>${T('th_sup_name')}</th><th>${T('rpt_num_receptions')}</th><th>${T('rpt_total_qty')}</th><th>${T('rpt_last_rec')}</th></tr></thead><tbody>${suppliers.map(s=>{const rcs=receipts.filter(r=>r.supplierId===s.id);const q=rcs.reduce((sq,r)=>sq+(r.lines||[]).reduce((sl,l)=>sl+(l.qty||0),0),0);const last=rcs.length?rcs.reduce((a,b)=>(a.date||'')>(b.date||'')?a:b):null;return`<tr><td>${s.nom}</td><td>${rcs.length}</td><td>${q}</td><td>${last?last.date:'—'}</td></tr>`;}).join('')}</tbody></table>`;
 }
 function exportReportPDF(){const tab=currentReportTab;const fn={'sales':exportSalesPDF,'purchases':exportPurchasesPDF,'stock':exportStockPDF,'clients':exportClientsPDF,'suppliers':exportSuppliersPDF}[tab];if(fn)fn();}
 function exportReportExcel(){const tab=currentReportTab;const fn={'sales':exportSalesExcel,'purchases':exportPurchasesExcel,'stock':exportStockExcel,'clients':exportClientsExcel,'suppliers':exportSuppliersExcel}[tab];if(fn)fn();}
@@ -2459,13 +2459,13 @@ function exportSuppliersPDF(){
   const {jsPDF}=window.jspdf;const doc=new jsPDF({unit:'mm',format:'a4'});const m=14;
   doc.setFontSize(16);doc.text('Rapport des Fournisseurs',m,20);
   doc.setFontSize(11);doc.text(`Total: ${suppliers.length}  |  Avec réceptions: ${suppliers.filter(s=>receipts.some(r=>r.supplierId===s.id)).length}`,m,28);
-  if(suppliers.length){const rows=suppliers.map(s=>{const rcs=receipts.filter(r=>r.supplierId===s.id);const q=rcs.reduce((sq,r)=>sq+(r.lines||[]).reduce((sl,l)=>sl+(l.qty||0),0),0);const last=rcs.length?rcs.reduce((a,b)=>(a.date||'')>(b.date||'')?a:b):null;return[s.name,String(rcs.length),String(q),last?last.date:'—'];});
+  if(suppliers.length){const rows=suppliers.map(s=>{const rcs=receipts.filter(r=>r.supplierId===s.id);const q=rcs.reduce((sq,r)=>sq+(r.lines||[]).reduce((sl,l)=>sl+(l.qty||0),0),0);const last=rcs.length?rcs.reduce((a,b)=>(a.date||'')>(b.date||'')?a:b):null;return[s.nom,String(rcs.length),String(q),last?last.date:'—'];});
   doc.autoTable({startY:35,margin:{left:m,right:m},head:[['Nom','Réceptions','Qté','Dernière']],body:rows,styles:{fontSize:8},headStyles:{fillColor:[50,50,50]}});}
   doc.save('rapport_fournisseurs.pdf');
 }
 function exportSuppliersExcel(){
   const wb=XLSX.utils.book_new();
-  const data=suppliers.map(s=>{const rcs=receipts.filter(r=>r.supplierId===s.id);return{Nom:s.name,Réceptions:rcs.length,'Qté totale':rcs.reduce((sq,r)=>sq+(r.lines||[]).reduce((sl,l)=>sl+(l.qty||0),0),0),'Dernière réception':rcs.length?rcs.reduce((a,b)=>(a.date||'')>(b.date||'')?a:b).date:''};});
+  const data=suppliers.map(s=>{const rcs=receipts.filter(r=>r.supplierId===s.id);return{Nom:s.nom,Réceptions:rcs.length,'Qté totale':rcs.reduce((sq,r)=>sq+(r.lines||[]).reduce((sl,l)=>sl+(l.qty||0),0),0),'Dernière réception':rcs.length?rcs.reduce((a,b)=>(a.date||'')>(b.date||'')?a:b).date:''};});
   const ws=XLSX.utils.json_to_sheet(data);
   ws['!cols']=[{wch:25},{wch:12},{wch:12},{wch:16}];
   XLSX.utils.book_append_sheet(wb,ws,'Fournisseurs');
@@ -3229,6 +3229,10 @@ async function saveInvoice(){
     invoices.push(newInv);
   }
   invoiceCounter++;
+  if(mode==='credit'&&client!=='—'){
+    const c=clients.find(x=>x.nom===client);
+    if(c){recalcClientBalance(c.id);await updateClientOnSupabase(c.id,c);}
+  }
   invLines=[];
   ['client-search','inv-client','inv-client-ice','inv-client-tel','inv-client-addr','inv-num-ctrl','inv-mode-ref'].forEach(i=>{const e=document.getElementById(i);if(e)e.value='';});
   document.getElementById('inv-mode').value='espece';document.getElementById('mode-ref-wrap').style.display='none';document.getElementById('credit-fields-wrap').style.display='none';
