@@ -1,0 +1,20 @@
+{
+  "name": "Amazzri Négoce",
+  "short_name": "Amazzri",
+  "description": "Gestion de stock, facturation et crédits",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0f172a",
+  "theme_color": "#2563eb",
+  "lang": "fr",
+  "icons": [
+    {
+      "src": "icons/logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
